@@ -631,7 +631,7 @@
           <span class="modal-tag">Print &amp; PDF Export Studio</span>
           <h3 class="modal-title" style="color:var(--text-main); font-family:var(--font-main); font-size:1.15rem;">Executive Wealth Statement Generator</h3>
         </div>
-        <button class="btn-close" id="btnPrintModalClose"><i data-lucide="x"></i></button>
+        <button class="btn-close" id="btnPrintModalClose" onclick="closePrintModal()" title="Close dialog"><i data-lucide="x"></i></button>
       </div>
 
       <div style="background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:10px; padding:16px; margin-bottom:18px;">
@@ -668,7 +668,7 @@
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:10px;">
-        <button class="btn btn-secondary" id="btnCancelPrint">Cancel</button>
+        <button class="btn btn-secondary" id="btnCancelPrint" onclick="closePrintModal()">Cancel</button>
         <button class="btn btn-primary" id="btnExecutePrint"><i data-lucide="printer"></i> Print / Save as PDF</button>
       </div>
     </div>
@@ -682,7 +682,7 @@
           <span class="modal-tag" id="modalTag">Holding Details</span>
           <h3 class="modal-title" id="modalTitle">-</h3>
         </div>
-        <button class="btn-close" id="btnModalClose"><i data-lucide="x"></i></button>
+        <button class="btn-close" id="btnModalClose" onclick="closeModal()" title="Close inspection"><i data-lucide="x"></i></button>
       </div>
 
       <div class="modal-content-grid" id="modalGridContent">

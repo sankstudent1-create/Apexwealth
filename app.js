@@ -208,10 +208,33 @@ function setupEventListeners() {
     }
   });
 
-  // Modal Close
-  document.getElementById('btnModalClose').addEventListener('click', closeModal);
-  document.getElementById('detailModal').addEventListener('click', (e) => {
-    if (e.target.id === 'detailModal') closeModal();
+  // Modal Close Listeners
+  const detailModal = document.getElementById('detailModal');
+  if (detailModal) {
+    detailModal.addEventListener('click', (e) => {
+      if (e.target.id === 'detailModal' || e.target.closest('#btnModalClose') || e.target.closest('.btn-close')) {
+        closeModal();
+      }
+    });
+  }
+
+  const printModal = document.getElementById('printModal');
+  if (printModal) {
+    printModal.addEventListener('click', (e) => {
+      if (e.target.id === 'printModal' || e.target.closest('#btnPrintModalClose') || e.target.closest('#btnCancelPrint')) {
+        closePrintModal();
+      }
+    });
+  }
+
+  // Global keydown for Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      closeModal();
+      closePrintModal();
+      const exportDropdown = document.getElementById('exportDropdown');
+      if (exportDropdown) exportDropdown.classList.add('hidden');
+    }
   });
 }
 
@@ -1514,8 +1537,11 @@ window.openFundDetail = function(id) {
 };
 
 function closeModal() {
-  document.getElementById('detailModal').classList.add('hidden');
+  const modal = document.getElementById('detailModal');
+  if (modal) modal.classList.add('hidden');
 }
+window.closeModal = closeModal;
+window.closePrintModal = closePrintModal;
 
 // ==================== EXPORTS ====================
 function exportToExcel() {

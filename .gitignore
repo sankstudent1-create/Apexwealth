@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Local private financial data spreadsheets & clean CSVs
+*.xls
+*.xlsx
+account_summary_clean.csv
+*.csv
+
+# Environment & IDE
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/

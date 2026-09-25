@@ -1,0 +1,13 @@
+{
+  "name": "apex-portfolio-analytics",
+  "version": "3.0.0",
+  "description": "Unified Multi-Asset Financial Intelligence & Portfolio Analytics Hub",
+  "private": true,
+  "scripts": {
+    "start": "python server.py",
+    "dev": "python server.py"
+  },
+  "keywords": ["portfolio", "finance", "mutual-funds", "post-office", "excel-analyzer", "analytics"],
+  "author": "Apex Wealth Technologies",
+  "license": "MIT"
+}

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Wealth | Multi-Asset Financial Intelligence</title>
+  <meta name="description" content="Unified portfolio intelligence dashboard for Post Office fixed income, Mutual Funds, and Equity portfolios with executive PDF reports.">
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- SheetJS, Chart.js & Lucide Icons -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="theme-dark">
+  <!-- Ambient Atmosphere -->
+  <div class="ambient-glow glow-top"></div>
+  <div class="ambient-glow glow-bottom"></div>
+
+  <!-- Interactive App Shell (Hidden during Print) -->
+  <div class="app-container no-print">
+    
+    <!-- Top Header Navigation -->
+    <header class="top-header glass-panel">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <i data-lucide="shield-check"></i>
+        </div>
+        <div>
+          <div class="brand-title-wrap">
+            <h1>Apex Wealth</h1>
+            <span class="live-pill"><span class="dot"></span> Client-Safe</span>
+          </div>
+          <p class="brand-sub">Multi-Asset Portfolio Intelligence &amp; Wealth Analytics</p>
+        </div>
+      </div>
+
+      <!-- Asset Switcher -->
+      <div class="portfolio-switcher">
+        <button class="switch-tab active" data-asset="consolidated">
+          <i data-lucide="globe"></i>
+          <span>Consolidated Net Worth</span>
+        </button>
+        <button class="switch-tab" data-asset="dop">
+          <i data-lucide="landmark"></i>
+          <span>Post Office (565)</span>
+        </button>
+        <button class="switch-tab" data-asset="mf">
+          <i data-lucide="pie-chart"></i>
+          <span>Mutual Funds (4)</span>
+        </button>
+      </div>
+
+      <!-- Global Controls -->
+      <div class="header-controls">
+        <button id="btnPrivacy" class="btn btn-ghost" title="Toggle Privacy Masking (Redact sensitive identifiers)">
+          <i data-lucide="eye-off" id="privacyIcon"></i>
+          <span id="privacyText">Mask Data</span>
+        </button>
+
+        <button id="btnThemeToggle" class="btn btn-ghost" title="Toggle Light/Dark Theme">
+          <i data-lucide="sun" id="themeIcon"></i>
+        </button>
+
+        <div class="dropdown-wrapper">
+          <button id="btnExportMenu" class="btn btn-secondary">
+            <i data-lucide="download"></i>
+            <span>Export</span>
+            <i data-lucide="chevron-down" style="width:13px; height:13px; opacity:0.6;"></i>
+          </button>
+          <div class="dropdown-menu hidden" id="exportDropdown">
+            <button id="btnExportExcel" class="dropdown-item">
+              <i data-lucide="sheet"></i> Download Excel (.xlsx)
+            </button>
+            <button id="btnExportCSV" class="dropdown-item">
+              <i data-lucide="file-text"></i> Download CSV Dataset
+            </button>
+            <button id="btnExportJSON" class="dropdown-item">
+              <i data-lucide="code-2"></i> Download JSON
+            </button>
+          </div>
+        </div>
+
+        <button id="btnPrintModalOpen" class="btn btn-primary" title="Generate and Print Colored Wealth Statement">
+          <i data-lucide="printer"></i>
+          <span>Print Report</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Flow -->
+    <main class="main-content">
+
+      <!-- Storage Status Bar (Visible when user has data saved locally) -->
+      <section class="storage-status-bar hidden" id="storageStatusBar">
+        <div class="storage-info">
+          <i data-lucide="database" style="color:#10b981;"></i>
+          <span id="storageStatusText">Portfolio Stored Locally in Browser Memory (Zero Server Upload)</span>
+        </div>
+        <div class="storage-actions">
+          <button class="btn btn-secondary btn-sm" id="btnUploadMore">
+            <i data-lucide="upload-cloud"></i>
+            <span>Import / Add File</span>
+          </button>
+          <button class="btn btn-ghost btn-sm" id="btnClearStorage" style="color:#ef4444;" title="Wipe local portfolio data">
+            <i data-lucide="trash-2"></i>
+            <span>Reset My Data</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Welcome Onboarding & Uploader (Shown when no data in localStorage) -->
+      <section class="onboarding-card glass-panel" id="onboardingSection">
+        <div class="onboarding-badge">
+          <i data-lucide="lock"></i> 100% Client-Side Private Processing
+        </div>
+        <h2 class="onboarding-title text-gradient">Welcome to Apex Wealth Intelligence</h2>
+        <p class="onboarding-sub">
+          Upload your personal financial statements to generate instant multi-asset valuations, maturity simulations, and executive colored print statements. Your financial data never leaves your browser.
+        </p>
+
+        <div class="dual-dropzone-grid">
+          <!-- Dropzone 1: Post Office -->
+          <div class="dropzone-box dop-dropzone" id="dropzoneDop">
+            <input type="file" id="fileInputDop" accept=".xls,.xlsx,.csv" class="file-hidden">
+            <div class="dropzone-icon-circle icon-blue-circle">
+              <i data-lucide="landmark"></i>
+            </div>
+            <h3>Post Office Fixed Income</h3>
+            <p>Upload your <strong>AccountSummary.xls</strong> or Post Office statement to analyze 5-Yr RDs, Time Deposits &amp; compound interest</p>
+            <span class="dropzone-filetypes">.XLS &bull; .XLSX &bull; .CSV</span>
+          </div>
+
+          <!-- Dropzone 2: Mutual Funds -->
+          <div class="dropzone-box mf-dropzone" id="dropzoneMf">
+            <input type="file" id="fileInputMf" accept=".xlsx,.xls,.csv" class="file-hidden">
+            <div class="dropzone-icon-circle icon-emerald-circle">
+              <i data-lucide="trending-up"></i>
+            </div>
+            <h3>Equity Mutual Funds &amp; Stocks</h3>
+            <p>Upload your <strong>Groww Holdings.xlsx</strong> or Demat portfolio statement to analyze Direct Plans, NAV gains &amp; XIRR</p>
+            <span class="dropzone-filetypes">.XLSX &bull; .XLS &bull; .CSV</span>
+          </div>
+        </div>
+
+        <div class="onboarding-footer-actions">
+          <span>Just exploring?</span>
+          <button class="btn btn-ghost btn-sm" id="btnLoadDemo">
+            <i data-lucide="sparkles"></i> Load Sample Demo Portfolio
+          </button>
+        </div>
+      </section>
+
+      <!-- Dashboard Container (Contains Hero, KPIs, Charts, Tables) -->
+      <div id="dashboardContainer">
+
+      <!-- Hero Valuation Card -->
+      <section class="hero-valuation-card glass-panel" id="heroValuationCard">
+        <div class="hero-left">
+          <div class="hero-tag-row">
+            <span class="pill-badge" id="heroAssetBadge"><i data-lucide="layers"></i> Consolidated Overview</span>
+            <span class="investor-name" id="heroInvestorName"><i data-lucide="user"></i> Portfolio Investor &bull; XXXXX1234X</span>
+          </div>
+          <div class="hero-net-worth">
+            <span class="net-worth-label" id="heroValLabel">Consolidated Net Worth</span>
+            <div class="net-worth-number text-gradient" id="heroValAmount">₹0.00</div>
+          </div>
+          <p class="hero-summary-text" id="heroSummaryText">
+            Aggregated assets across Post Office Fixed Income and Equity Mutual Funds.
+          </p>
+        </div>
+
+        <div class="hero-stats-grid">
+          <div class="hero-stat-box">
+            <span class="stat-box-title" id="heroStatTitle1">Total Holdings</span>
+            <span class="stat-box-num" id="heroStatNum1">569 Assets</span>
+          </div>
+          <div class="hero-stat-box">
+            <span class="stat-box-title" id="heroStatTitle2">Cost Basis / Principal</span>
+            <span class="stat-box-num" id="heroStatNum2">₹6,36,750.96</span>
+          </div>
+          <div class="hero-stat-box highlighted">
+            <span class="stat-box-title" id="heroStatTitle3">Projected Total Wealth</span>
+            <span class="stat-box-num text-emerald" id="heroStatNum3">₹41,94,302.50</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 Core Metric KPI Cards -->
+      <section class="kpi-row">
+        <div class="kpi-box glass-panel">
+          <div class="kpi-box-top">
+            <span class="kpi-box-label" id="kpiLabel1">Fixed Income (DOP)</span>
+            <div class="kpi-icon-wrap icon-blue"><i data-lucide="landmark"></i></div>
+          </div>
+          <div class="kpi-box-val" id="kpiVal1">₹5,36,756.00</div>
+          <div class="kpi-box-sub">
+            <span class="badge-tag badge-blue" id="kpiBadge1">565 Accounts</span>
+            <span class="kpi-note" id="kpiNote1">84.8% Allocation</span>
+          </div>
+        </div>
+
+        <div class="kpi-box glass-panel">
+          <div class="kpi-box-top">
+            <span class="kpi-box-label" id="kpiLabel2">Mutual Funds (Equity)</span>
+            <div class="kpi-icon-wrap icon-emerald"><i data-lucide="trending-up"></i></div>
+          </div>
+          <div class="kpi-box-val" id="kpiVal2">₹96,192.50</div>
+          <div class="kpi-box-sub">
+            <span class="badge-tag badge-emerald" id="kpiBadge2">4 Direct Funds</span>
+            <span class="kpi-note" id="kpiNote2">15.2% Allocation</span>
+          </div>
+        </div>
+
+        <div class="kpi-box glass-panel">
+          <div class="kpi-box-top">
+            <span class="kpi-box-label" id="kpiLabel3">Portfolio XIRR / Yield</span>
+            <div class="kpi-icon-wrap icon-purple"><i data-lucide="percent"></i></div>
+          </div>
+          <div class="kpi-box-val" id="kpiVal3">1.04% XIRR</div>
+          <div class="kpi-box-sub">
+            <span class="badge-tag badge-purple" id="kpiBadge3">Annualized</span>
+            <span class="kpi-note" id="kpiNote3">Compounded Growth</span>
+          </div>
+        </div>
+
+        <div class="kpi-box glass-panel">
+          <div class="kpi-box-top">
+            <span class="kpi-box-label" id="kpiLabel4">Estimated Net Gain</span>
+            <div class="kpi-icon-wrap icon-amber"><i data-lucide="sparkles"></i></div>
+          </div>
+          <div class="kpi-box-val text-emerald" id="kpiVal4">+₹35.61 Lakhs</div>
+          <div class="kpi-box-sub">
+            <span class="badge-tag badge-amber" id="kpiBadge4">Maturity Pool</span>
+            <span class="kpi-note" id="kpiNote4">Total Returns</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Visual Analytics Row (Donut & Bar) -->
+      <section class="charts-row">
+        <!-- Chart 1: Donut -->
+        <div class="chart-card glass-panel">
+          <div class="chart-header">
+            <div>
+              <h3 id="chartTitle1">Asset Allocation Breakdown</h3>
+              <p id="chartSub1">Portfolio distribution across instruments</p>
+            </div>
+          </div>
+          <div class="chart-box donut-wrap">
+            <canvas id="allocationDonutChart"></canvas>
+          </div>
+          <div class="legend-box" id="chartLegendList"></div>
+        </div>
+
+        <!-- Chart 2: Bar / Performance -->
+        <div class="chart-card glass-panel">
+          <div class="chart-header">
+            <div>
+              <h3 id="chartTitle2">Maturity &amp; Realization Schedule</h3>
+              <p id="chartSub2">Upcoming liquidity timeline and capital realization</p>
+            </div>
+            <div class="chart-mode-pills" id="chartModePills">
+              <button class="pill-btn active" data-mode="payout">Value (₹)</button>
+              <button class="pill-btn" data-mode="count">Count</button>
+            </div>
+          </div>
+          <div class="chart-box">
+            <canvas id="timelineBarChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Directory & Ledger -->
+      <section class="table-section glass-panel">
+        
+        <div class="table-toolbar">
+          <div class="toolbar-title-wrap">
+            <h3 id="tableSectionTitle">Holdings &amp; Accounts Ledger</h3>
+            <span class="count-badge" id="tableCountBadge">565 Records</span>
+          </div>
+
+          <!-- Quick Filter Chips -->
+          <div class="filter-chips-wrap" id="filterChipsWrap">
+            <button class="chip-btn active" data-filter="all">All</button>
+            <button class="chip-btn" data-filter="TD">Time Deposits (62)</button>
+            <button class="chip-btn" data-filter="RD">Recurring Deposits (502)</button>
+            <button class="chip-btn" data-filter="SB">Savings Bank (1)</button>
+            <button class="chip-btn" data-filter="high">High Value (≥ ₹10k)</button>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-row">
+          <div class="search-box">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="searchInput" placeholder="Search by name, account / folio number, category, dates, amounts...">
+            <button id="btnClearSearch" class="btn-clear hidden"><i data-lucide="x"></i></button>
+          </div>
+
+          <div class="page-size-wrap">
+            <select id="selectPageSize" class="custom-select">
+              <option value="15">15 rows</option>
+              <option value="25" selected>25 rows</option>
+              <option value="50">50 rows</option>
+              <option value="100">100 rows</option>
+              <option value="all">Show All</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-scroll-wrap">
+          <table class="modern-table" id="mainDataTable">
+            <thead id="tableHead">
+              <!-- Dynamically populated based on active asset -->
+            </thead>
+            <tbody id="tableBody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="table-footer-row">
+          <div class="page-text" id="pageInfoText">Showing 1 to 25 records</div>
+          <div class="page-controls" id="pageControls">
+            <!-- Page buttons -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Drag & Drop Uploader Area for Dashboard -->
+      <section class="upload-section glass-panel">
+        <div class="upload-dropzone" id="uploadDropzone">
+          <input type="file" id="uploadFileInput" accept=".xls,.xlsx,.csv" class="file-hidden">
+          <div class="upload-inner">
+            <div class="upload-icon">
+              <i data-lucide="upload-cloud"></i>
+            </div>
+            <div class="upload-text">
+              <h4>Import Additional Financial Spreadsheet</h4>
+              <p>Drag &amp; drop any Post Office .xls or Groww .xlsx to append or update your local browser portfolio</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button">Browse File</button>
+          </div>
+        </div>
+      </section>
+
+      </div> <!-- End dashboardContainer -->
+
+    </main>
+
+    <!-- Global Footer -->
+    <footer class="app-footer">
+      <p>Apex Wealth Intelligence &bull; Client-Side Private Processing &bull; Stored Locally &bull; Ready for Supabase Cloud Sync</p>
+    </footer>
+  </div>
+
+  <!-- ==================== EXECUTIVE COLORED PRINT / PDF REPORT ==================== -->
+  <!-- This section is styled with high-impact color themes and prints perfectly on A4 paper -->
+  <div class="print-report-container" id="executivePrintReport">
+    
+    <!-- Report Header -->
+    <div class="print-header">
+      <div class="print-brand-row">
+        <div class="print-logo-box">
+          <div class="print-logo-icon">▲</div>
+          <div>
+            <h1 class="print-brand-name">APEX WEALTH MANAGEMENT</h1>
+            <p class="print-brand-sub">PORTFOLIO INTELLIGENCE &amp; ASSET AUDIT REPORT</p>
+          </div>
+        </div>
+        <div class="print-meta-box">
+          <div class="print-badge verified">✓ AUDITED &amp; VERIFIED</div>
+          <div class="print-meta-line"><strong>Statement Ref:</strong> APX-2026-0925</div>
+          <div class="print-meta-line"><strong>Valuation Date:</strong> 25-Sep-2026</div>
+        </div>
+      </div>
+      
+      <!-- Investor Profile Box -->
+      <div class="print-investor-card">
+        <div class="print-inv-item">
+          <span class="print-inv-label">Investor Name</span>
+          <span class="print-inv-val" id="printInvestorName">Portfolio Investor</span>
+        </div>
+        <div class="print-inv-item">
+          <span class="print-inv-label">Identifier (PAN)</span>
+          <span class="print-inv-val" id="printPan">XXXXX1234X</span>
+        </div>
+        <div class="print-inv-item">
+          <span class="print-inv-label">Primary Platforms</span>
+          <span class="print-inv-val" id="printPlatforms">India Post (Regional S.O) &bull; Groww Demat</span>
+        </div>
+        <div class="print-inv-item">
+          <span class="print-inv-label">Audit Scope</span>
+          <span class="print-inv-val">565 Fixed Income Accs + 4 Equity Funds</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: Colored Executive KPI Summary Grid -->
+    <div class="print-section-title">1. EXECUTIVE VALUATION &amp; WEALTH OVERVIEW</div>
+    <div class="print-kpi-grid">
+      <div class="print-kpi-card card-navy">
+        <span class="print-kpi-lbl">Consolidated Net Worth</span>
+        <div class="print-kpi-val" id="printNetWorth">₹6,32,948.50</div>
+        <span class="print-kpi-sub">Total Current Market Valuation</span>
+      </div>
+      <div class="print-kpi-card card-cobalt">
+        <span class="print-kpi-lbl">Fixed Income Deposits (DOP)</span>
+        <div class="print-kpi-val" id="printDopVal">₹5,36,756.00</div>
+        <span class="print-kpi-sub">565 Accounts &bull; 84.8% Allocation</span>
+      </div>
+      <div class="print-kpi-card card-emerald">
+        <span class="print-kpi-lbl">Equity Mutual Funds</span>
+        <div class="print-kpi-val" id="printMfVal">₹96,192.50</div>
+        <span class="print-kpi-sub">1.04% XIRR &bull; 15.2% Allocation</span>
+      </div>
+      <div class="print-kpi-card card-purple">
+        <span class="print-kpi-lbl">Projected Total Wealth</span>
+        <div class="print-kpi-val" id="printProjWealth">₹41,94,302.50</div>
+        <span class="print-kpi-sub">+₹35.61 Lakhs Projected Interest</span>
+      </div>
+    </div>
+
+    <!-- Section 2: Asset Allocation Summary Table -->
+    <div class="print-section-title" style="margin-top: 18px;">2. ASSET ALLOCATION &amp; CAPITAL DISTRIBUTION</div>
+    <table class="print-table">
+      <thead>
+        <tr>
+          <th>Asset Class</th>
+          <th>Instrument / Platform</th>
+          <th class="text-center">Holdings</th>
+          <th class="text-right">Cost Basis (₹)</th>
+          <th class="text-right">Current Market Value (₹)</th>
+          <th class="text-right">Allocation (%)</th>
+          <th class="text-right">Projected Realization (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Fixed Income Deposits</strong></td>
+          <td>Post Office (TD, RD, Savings)</td>
+          <td class="text-center">565</td>
+          <td class="text-right">₹5,36,756.00</td>
+          <td class="text-right">₹5,36,756.00</td>
+          <td class="text-right"><strong>84.80%</strong></td>
+          <td class="text-right font-bold" style="color:#047857;">₹40,98,110.00</td>
+        </tr>
+        <tr>
+          <td><strong>Equity Mutual Funds</strong></td>
+          <td>Direct Growth Schemes (Groww)</td>
+          <td class="text-center">4</td>
+          <td class="text-right">₹99,994.96</td>
+          <td class="text-right">₹96,192.50</td>
+          <td class="text-right"><strong>15.20%</strong></td>
+          <td class="text-right font-bold" style="color:#047857;">₹96,192.50</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="print-total-row">
+          <td colspan="2"><strong>TOTAL CONSOLIDATED PORTFOLIO</strong></td>
+          <td class="text-center"><strong>569</strong></td>
+          <td class="text-right"><strong>₹6,36,750.96</strong></td>
+          <td class="text-right"><strong>₹6,32,948.50</strong></td>
+          <td class="text-right"><strong>100.00%</strong></td>
+          <td class="text-right font-bold" style="color:#047857;"><strong>₹41,94,302.50</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Section 3: Post Office Fixed Income Breakdown -->
+    <div class="print-section-title" style="margin-top: 18px;">3. POST OFFICE FIXED INCOME SCHEDULE (REGIONAL S.O)</div>
+    <table class="print-table">
+      <thead>
+        <tr>
+          <th>Deposit Scheme</th>
+          <th class="text-center">Active Accounts</th>
+          <th class="text-right">Book Balance (₹)</th>
+          <th class="text-right">Share (%)</th>
+          <th class="text-right">Estimated Maturity Value (₹)</th>
+          <th class="text-right">Estimated Net Interest (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Time Deposit For One Year (TD)</strong></td>
+          <td class="text-center">62</td>
+          <td class="text-right">₹4,50,000.00</td>
+          <td class="text-right">83.84%</td>
+          <td class="text-right">₹4,81,870.00</td>
+          <td class="text-right font-bold" style="color:#047857;">+₹31,870.00</td>
+        </tr>
+        <tr>
+          <td><strong>Recurring Deposit Product (5-Yr RD)</strong></td>
+          <td class="text-center">502</td>
+          <td class="text-right">₹50,200.00</td>
+          <td class="text-right">9.35%</td>
+          <td class="text-right">₹35,79,260.00</td>
+          <td class="text-right font-bold" style="color:#047857;">+₹35,29,060.00</td>
+        </tr>
+        <tr>
+          <td><strong>Savings Bank Account (SB)</strong></td>
+          <td class="text-center">1</td>
+          <td class="text-right">₹36,556.00</td>
+          <td class="text-right">6.81%</td>
+          <td class="text-right">₹36,556.00</td>
+          <td class="text-right font-bold" style="color:#047857;">+₹1,462.24 / yr</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 4: Mutual Funds Holdings Performance -->
+    <div class="print-section-title" style="margin-top: 18px;">4. EQUITY MUTUAL FUNDS PORTFOLIO PERFORMANCE</div>
+    <table class="print-table">
+      <thead>
+        <tr>
+          <th>Fund Scheme Name</th>
+          <th>AMC &bull; Category</th>
+          <th class="text-right">Units</th>
+          <th class="text-right">Invested Cost (₹)</th>
+          <th class="text-right">Current Value (₹)</th>
+          <th class="text-right">Net P&amp;L (₹)</th>
+          <th class="text-center">Return %</th>
+          <th class="text-center">XIRR</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>SBI PSU Direct Plan Growth</strong></td>
+          <td>SBI MF &bull; Thematic</td>
+          <td class="text-right">871.622</td>
+          <td class="text-right">₹29,998.51</td>
+          <td class="text-right">₹32,307.72</td>
+          <td class="text-right font-bold" style="color:#047857;">+₹2,309.20</td>
+          <td class="text-center"><span class="print-tag tag-green">+7.70%</span></td>
+          <td class="text-center font-bold" style="color:#047857;">+5.09%</td>
+        </tr>
+        <tr>
+          <td><strong>JM Flexi Cap Fund Direct Growth</strong></td>
+          <td>JM Financial &bull; Flexi Cap</td>
+          <td class="text-right">170.389</td>
+          <td class="text-right">₹19,999.00</td>
+          <td class="text-right">₹19,413.80</td>
+          <td class="text-right font-bold" style="color:#b91c1c;">-₹585.20</td>
+          <td class="text-center"><span class="print-tag tag-red">-2.93%</span></td>
+          <td class="text-center" style="color:#b91c1c;">-1.83%</td>
+        </tr>
+        <tr>
+          <td><strong>Motilal Oswal Midcap Fund Direct</strong></td>
+          <td>Motilal Oswal &bull; Mid Cap</td>
+          <td class="text-right">244.347</td>
+          <td class="text-right">₹29,998.48</td>
+          <td class="text-right">₹28,587.60</td>
+          <td class="text-right font-bold" style="color:#b91c1c;">-₹1,410.88</td>
+          <td class="text-center"><span class="print-tag tag-red">-4.70%</span></td>
+          <td class="text-center" style="color:#047857;">+0.22%</td>
+        </tr>
+        <tr>
+          <td><strong>Tata Digital India Fund Direct</strong></td>
+          <td>Tata MF &bull; Sectoral</td>
+          <td class="text-right">341.045</td>
+          <td class="text-right">₹19,998.97</td>
+          <td class="text-right">₹15,883.39</td>
+          <td class="text-right font-bold" style="color:#b91c1c;">-₹4,115.58</td>
+          <td class="text-center"><span class="print-tag tag-red">-20.58%</span></td>
+          <td class="text-center" style="color:#b91c1c;">-13.42%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Section 5: Maturity Liquidity Waterfall -->
+    <div class="print-section-title" style="margin-top: 18px;">5. CAPITAL REALIZATION WATERFALL (2027 – 2031)</div>
+    <div class="print-waterfall-grid">
+      <div class="waterfall-box">
+        <span class="waterfall-year">YEAR 2027</span>
+        <span class="waterfall-val">₹4,81,870.00</span>
+        <span class="waterfall-desc">62 Time Deposits</span>
+      </div>
+      <div class="waterfall-box">
+        <span class="waterfall-year">YEAR 2028</span>
+        <span class="waterfall-val">₹1,42,600.00</span>
+        <span class="waterfall-desc">20 Recurring Deposits</span>
+      </div>
+      <div class="waterfall-box">
+        <span class="waterfall-year">YEAR 2029</span>
+        <span class="waterfall-val">₹8,27,080.00</span>
+        <span class="waterfall-desc">116 Recurring Deposits</span>
+      </div>
+      <div class="waterfall-box">
+        <span class="waterfall-year">YEAR 2030</span>
+        <span class="waterfall-val">₹14,97,300.00</span>
+        <span class="waterfall-desc">210 Recurring Deposits</span>
+      </div>
+      <div class="waterfall-box">
+        <span class="waterfall-year">YEAR 2031</span>
+        <span class="waterfall-val">₹11,12,280.00</span>
+        <span class="waterfall-desc">156 Recurring Deposits</span>
+      </div>
+    </div>
+
+    <!-- Sign-off & Audit Seal -->
+    <div class="print-footer-block">
+      <div class="print-disclaimer">
+        <p><strong>Compliance &amp; Verification Note:</strong> This statement reflects audited records as of 25-Sep-2026. Fixed Income compounding models adhere to India Post interest rates (6.70% p.a. quarterly compounded for 5-Year RD, 6.90% p.a. for 1-Year TD). Mutual fund values reflect published closing Net Asset Value (NAV).</p>
+      </div>
+      <div class="print-signature-wrap">
+        <div class="signature-line">
+          <span>Prepared by Apex Wealth System</span>
+        </div>
+        <div class="signature-line">
+          <span>Authorized Investor Signature</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Print Preview & Config Modal -->
+  <div class="modal-overlay hidden" id="printModal">
+    <div class="modal-dialog glass-panel" style="max-width: 620px;">
+      <div class="modal-top">
+        <div>
+          <span class="modal-tag">Print &amp; PDF Export Studio</span>
+          <h3 class="modal-title" style="color:var(--text-main); font-family:var(--font-main); font-size:1.15rem;">Executive Wealth Statement Generator</h3>
+        </div>
+        <button class="btn-close" id="btnPrintModalClose"><i data-lucide="x"></i></button>
+      </div>
+
+      <div style="background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:10px; padding:16px; margin-bottom:18px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <i data-lucide="sparkles" style="color:#3b82f6; width:18px; height:18px;"></i>
+          <strong style="color:var(--text-main); font-size:0.9rem;">Executive Colored PDF Statement Ready</strong>
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-muted); line-height:1.5;">
+          Generates an A4-optimized wealth statement with executive colored KPI tiles, asset allocation tables, post office deposit breakdown, and mutual fund performance.
+        </p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:20px;">
+        <div>
+          <label style="display:block; font-size:0.78rem; font-weight:700; color:var(--text-main); margin-bottom:6px;">Select Statement Type to Print:</label>
+          <select id="selectPrintScope" class="form-select" style="width:100%; background:var(--bg-card-elevated); color:var(--text-main); border:1px solid var(--border-bright); border-radius:8px; padding:9px 12px; font-size:0.85rem;">
+            <option value="current">Current Active View</option>
+            <option value="dop_detailed">Post Office Full Statement (with Detailed Account Numbers Schedule)</option>
+            <option value="consolidated">Consolidated Wealth Intelligence Statement</option>
+            <option value="mf_detailed">Mutual Funds &amp; Demat Portfolio Ledger</option>
+          </select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="display:flex; align-items:center; gap:10px; font-size:0.82rem; cursor:pointer;">
+            <input type="checkbox" id="chkIncludeMask" style="accent-color:var(--color-brand);">
+            <span>Mask sensitive identifiers (PAN / Account Numbers: 0100****919)</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:10px; font-size:0.82rem; cursor:pointer;">
+            <input type="checkbox" id="chkIncludeWaterfall" checked style="accent-color:var(--color-brand);">
+            <span>Include 2027–2031 Capital Realization Waterfall Schedule</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn btn-secondary" id="btnCancelPrint">Cancel</button>
+        <button class="btn btn-primary" id="btnExecutePrint"><i data-lucide="printer"></i> Print / Save as PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Inspection Modal -->
+  <div class="modal-overlay hidden" id="detailModal">
+    <div class="modal-dialog glass-panel">
+      <div class="modal-top">
+        <div>
+          <span class="modal-tag" id="modalTag">Holding Details</span>
+          <h3 class="modal-title" id="modalTitle">-</h3>
+        </div>
+        <button class="btn-close" id="btnModalClose"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="modal-content-grid" id="modalGridContent">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-box"></div>
+
+  <!-- Embedded Sanitized Portfolio Dataset for Public Vercel Demo -->
+  <script src="/portfolio_data.js"></script>
+  <!-- Application Client Controller -->
+  <script src="/app.js"></script>
+</body>
+</html>

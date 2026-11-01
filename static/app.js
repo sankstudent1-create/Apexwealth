@@ -121,7 +121,7 @@ function signoffBlockHTML() {
     ? `<img src="${sig}" alt="Uploaded signature">`
     : `<div class="signoff-sig-space"></div>`;
   return `<div class="print-signoff">
-    <div class="signoff-brand">${brandLogoSVG('print-brand-logo')}<span>For SWInfoSystems</span></div>
+    <div class="signoff-brand">${brandLogoSVG('print-brand-logo')}<span>${t('printForBrand')}</span></div>
     <div class="signoff-sig">${sigArea}<div class="signoff-line"></div><div class="signoff-label">${t('authorisedSignatory')}</div></div>
   </div>`;
 }
@@ -1372,7 +1372,7 @@ function renderTable() {
         <td class="text-right font-bold">${r.balance_formatted}</td>
         <td class="text-right font-bold text-positive">${r.projected_maturity_formatted}</td>
         <td>${r.open_date || '-'}</td>
-        <td>${r.maturity_date || 'Liquid'}</td>
+        <td>${r.maturity_date || t('printLiquid')}</td>
         <td class="text-center"><button class="btn btn-ghost btn-sm" onclick="openAccDetail(${r.id})">Inspect</button></td>
       `;
     }
@@ -1452,7 +1452,9 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
 
   const investorName = shouldMask ? 'Portfolio Investor' : 'Portfolio Investor';
   const pan = shouldMask ? 'XXXXX1234X' : 'XXXXX1234X';
-  const valDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const printLang = (typeof window.getCurrentLang === 'function' ? window.getCurrentLang() : 'en');
+  const printLocale = printLang === 'mr' ? 'mr-IN' : printLang === 'hi' ? 'hi-IN' : 'en-GB';
+  const valDate = new Date().toLocaleDateString(printLocale, { day: '2-digit', month: 'short', year: 'numeric' });
 
   if (targetMode === 'dop_detailed' && dop) {
     // -------------------------------------------------------------
@@ -1466,7 +1468,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
     const tdRecs = records.filter(r => r.category_code === 'TD');
     const rdRecs = records.filter(r => r.category_code === 'RD');
     const sbRecs = records.filter(r => r.category_code === 'SB');
-    const viewNote = viewType === 'all' ? 'All account types' : viewLabel();
+    const viewNote = viewType === 'all' ? t('printAllTypes') : viewLabel();
     const vBal = records.reduce((s, r) => s + r.balance, 0);
     const vProj = records.reduce((s, r) => s + r.projected_maturity_value, 0);
     const vInt = records.reduce((s, r) => s + r.projected_total_interest, 0);
@@ -1475,22 +1477,22 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         <div class="print-kpi-card card-indigo">
           <span class="print-kpi-lbl">${t('printDynDopKpiBook')}</span>
           <div class="print-kpi-val">${dopMeta.total_balance_formatted || '₹0.00'}</div>
-          <span class="print-kpi-sub">Total Current Deposits</span>
+          <span class="print-kpi-sub">${t('printKpiSubDeposits')}</span>
         </div>
         <div class="print-kpi-card card-blue">
           <span class="print-kpi-lbl">${t('printDynDopKpiTd')}</span>
           <div class="print-kpi-val">₹${tdRecs.reduce((s,r)=>s+r.balance,0).toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
-          <span class="print-kpi-sub">${tdRecs.length} Accounts &bull; 1-Yr Quarterly</span>
+          <span class="print-kpi-sub">${tdRecs.length} ${t('printAccountsWord')} &bull; ${t('printTdTenure')}</span>
         </div>
         <div class="print-kpi-card card-plum">
           <span class="print-kpi-lbl">${t('printDynDopKpiRd')}</span>
           <div class="print-kpi-val">₹${rdRecs.reduce((s,r)=>s+r.balance,0).toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
-          <span class="print-kpi-sub">${rdRecs.length} Accounts &bull; 5-Yr Cumulative</span>
+          <span class="print-kpi-sub">${rdRecs.length} ${t('printAccountsWord')} &bull; ${t('printRdTenure')}</span>
         </div>
         <div class="print-kpi-card card-amber">
           <span class="print-kpi-lbl">${t('printDynDopKpiProj')}</span>
           <div class="print-kpi-val">${dopMeta.total_projected_maturity_formatted || '₹0.00'}</div>
-          <span class="print-kpi-sub">+${dopMeta.total_projected_interest_formatted || '₹0.00'} Net Interest</span>
+          <span class="print-kpi-sub">+${dopMeta.total_projected_interest_formatted || '₹0.00'} ${t('printKpiSubNetInterest')}</span>
         </div>` : `
         <div class="print-kpi-card card-indigo">
           <span class="print-kpi-lbl">${viewType} ${t('viewBalance')}</span>
@@ -1513,9 +1515,9 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
           <span class="print-kpi-sub">${viewLabel()}</span>
         </div>`;
     const schemeDefs = [
-      { code: 'TD', name: 'Time Deposit For One Year (TD)', recs: tdRecs },
-      { code: 'RD', name: 'Recurring Deposit Product (5-Yr RD)', recs: rdRecs },
-      { code: 'SB', name: 'Savings Bank Account (SB)', recs: sbRecs },
+      { code: 'TD', name: t('printSchemeTd'), recs: tdRecs },
+      { code: 'RD', name: t('printSchemeRd'), recs: rdRecs },
+      { code: 'SB', name: t('printSchemeSb'), recs: sbRecs },
     ].filter(d => viewType === 'all' || d.code === viewType);
     const schemeRowsHTML = schemeDefs.map(d => {
       const bal = d.recs.reduce((s2, r) => s2 + r.balance, 0);
@@ -1524,7 +1526,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         ? d.recs.reduce((s2, r) => s2 + r.annual_yield, 0)
         : d.recs.reduce((s2, r) => s2 + r.projected_total_interest, 0);
       const share = vBal > 0 ? ((bal / vBal) * 100).toFixed(2) : '0.00';
-      return '<tr><td><strong>' + d.name + '</strong></td><td class="text-center">' + d.recs.length + '</td><td class="text-right">₹' + bal.toLocaleString('en-IN', {minimumFractionDigits:2}) + '</td><td class="text-right">' + share + '%</td><td class="text-right">₹' + proj.toLocaleString('en-IN', {minimumFractionDigits:2}) + '</td><td class="text-right font-bold text-positive">+₹' + gain.toLocaleString('en-IN', {minimumFractionDigits:2}) + (d.code === 'SB' ? ' / yr' : '') + '</td></tr>';
+      return '<tr><td><strong>' + d.name + '</strong></td><td class="text-center">' + d.recs.length + '</td><td class="text-right">₹' + bal.toLocaleString('en-IN', {minimumFractionDigits:2}) + '</td><td class="text-right">' + share + '%</td><td class="text-right">₹' + proj.toLocaleString('en-IN', {minimumFractionDigits:2}) + '</td><td class="text-right font-bold text-positive">+₹' + gain.toLocaleString('en-IN', {minimumFractionDigits:2}) + (d.code === 'SB' ? ' ' + t('printPerYear') : '') + '</td></tr>';
     }).join('');
 
     reportContainer.innerHTML = `
@@ -1535,35 +1537,35 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
             ${brandLogoSVG('print-brand-logo')}
             <div>
               <h1 class="print-brand-name">SWInfoSystems &bull; APEX WEALTH</h1>
-              <p class="print-brand-sub">POST OFFICE FIXED INCOME AUDIT &amp; ACCOUNT SCHEDULE</p>
+              <p class="print-brand-sub">${t('printDopSub')}</p>
             </div>
           </div>
           <div class="print-meta-box">
-            <div class="print-badge verified">✓ AUDITED &amp; VERIFIED</div>
-            <div class="print-meta-line"><strong>Statement Ref:</strong> APX-DOP-${new Date().getFullYear()}</div>
-            <div class="print-meta-line"><strong>Valuation Date:</strong> ${valDate}</div>
+            <div class="print-badge verified">${t('printBadgeVerified')}</div>
+            <div class="print-meta-line"><strong>${t('printStmtRef')}</strong> APX-DOP-${new Date().getFullYear()}</div>
+            <div class="print-meta-line"><strong>${t('printValDate')}</strong> ${valDate}</div>
           </div>
         </div>
         
         <div class="print-investor-card">
           <div class="print-inv-item">
-            <span class="print-inv-label">Investor Name</span>
+            <span class="print-inv-label">${t('printInvName')}</span>
             <span class="print-inv-val">${investorName}</span>
           </div>
           <div class="print-inv-item">
-            <span class="print-inv-label">Identifier (PAN)</span>
+            <span class="print-inv-label">${t('printInvPan')}</span>
             <span class="print-inv-val">${pan}</span>
           </div>
           <div class="print-inv-item">
-            <span class="print-inv-label">Post Office Branch</span>
+            <span class="print-inv-label">${t('printInvBranch')}</span>
             <span class="print-inv-val">${dopMeta.post_offices?.[0] || 'Regional Post Office S.O'}</span>
           </div>
           <div class="print-inv-item">
-            <span class="print-inv-label">Total Accounts Audited</span>
-            <span class="print-inv-val">${records.length} Active Accounts</span>
+            <span class="print-inv-label">${t('printInvAudited')}</span>
+            <span class="print-inv-val">${records.length} ${t('printActiveAccounts')}</span>
           </div>
           <div class="print-inv-item">
-            <span class="print-inv-label">Report view</span>
+            <span class="print-inv-label">${t('printReportView')}</span>
             <span class="print-inv-val">${viewNote}</span>
           </div>
         </div>
@@ -1578,12 +1580,12 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       <table class="print-table">
         <thead>
           <tr>
-            <th>Deposit Scheme Description</th>
-            <th class="text-center">Active Accounts</th>
-            <th class="text-right">Book Balance (₹)</th>
-            <th class="text-right">Share (%)</th>
-            <th class="text-right">Est. Maturity Value (₹)</th>
-            <th class="text-right">Net Projected Gain (₹)</th>
+            <th>${t('printThSchemeDesc')}</th>
+            <th class="text-center">${t('printActiveAccounts')}</th>
+            <th class="text-right">${t('printThBook')}</th>
+            <th class="text-right">${t('printThShare')}</th>
+            <th class="text-right">${t('printThMatVal')}</th>
+            <th class="text-right">${t('printThNetGain')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1591,7 +1593,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         </tbody>
         <tfoot>
           <tr class="print-total-row">
-            <td><strong>TOTAL POST OFFICE PORTFOLIO</strong></td>
+            <td><strong>${t('printTotalDop')}</strong></td>
             <td class="text-center"><strong>${records.length}</strong></td>
             <td class="text-right"><strong>${inr(vBal)}</strong></td>
             <td class="text-right"><strong>100.00%</strong></td>
@@ -1608,13 +1610,13 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
           <tr>
             <th style="width:30px;">#</th>
             <th>${t('thAccNo')}</th>
-            <th>Scheme Description</th>
-            <th>Classification</th>
+            <th>${t('printThSchemeDesc')}</th>
+            <th>${t('printThClass')}</th>
             <th class="text-right">${t('thBalance')}</th>
             <th class="text-right">${t('thMaturity')}</th>
-            <th class="text-center">Open Date</th>
-            <th class="text-center">Maturity Date</th>
-            <th class="text-right">Projected Interest (₹)</th>
+            <th class="text-center">${t('thOpen')}</th>
+            <th class="text-center">${t('thMatDate')}</th>
+            <th class="text-right">${t('printThProjInterest')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1627,7 +1629,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
               <td class="text-right font-bold">${r.balance_formatted}</td>
               <td class="text-right font-bold" style="color:#1E40AF;">${r.projected_maturity_formatted}</td>
               <td class="text-center">${r.open_date || '-'}</td>
-              <td class="text-center">${r.maturity_date || 'Liquid'}</td>
+              <td class="text-center">${r.maturity_date || t('printLiquid')}</td>
               <td class="text-right" style="color:#1E40AF;">+${r.projected_interest_formatted}</td>
             </tr>
           `).join('')}
@@ -1637,7 +1639,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       <!-- Sign-off -->
       <div class="print-footer-block">
         <div class="print-disclaimer">
-          <p><strong>Compliance &amp; Verification Note:</strong> Statement generated directly from verified Department of Posts (India Post) records. Interest calculations adhere to government rates (6.70% p.a. for 5-Year RD, 6.90% p.a. for 1-Year TD). Masking enabled: ${shouldMask ? 'YES' : 'NO'}.</p>
+          <p><strong>${t('printDisclaimerLabel')}</strong> ${fmt(t('printDisclaimerDop'), [interestRates.RD.toFixed(2), interestRates.TD.toFixed(2), shouldMask ? t('printYes') : t('printNo')])}</p>
         </div>
         ${signoffBlockHTML()}
       </div>
@@ -1657,21 +1659,21 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
             ${brandLogoSVG('print-brand-logo')}
             <div>
               <h1 class="print-brand-name">SWInfoSystems &bull; APEX WEALTH</h1>
-              <p class="print-brand-sub">MUTUAL FUNDS &amp; DEMAT PORTFOLIO STATEMENT</p>
+              <p class="print-brand-sub">${t('printMfSub')}</p>
             </div>
           </div>
           <div class="print-meta-box">
-            <div class="print-badge verified">✓ AUDITED &amp; VERIFIED</div>
-            <div class="print-meta-line"><strong>Statement Ref:</strong> APX-MF-${new Date().getFullYear()}</div>
-            <div class="print-meta-line"><strong>Valuation Date:</strong> ${valDate}</div>
+            <div class="print-badge verified">${t('printBadgeVerified')}</div>
+            <div class="print-meta-line"><strong>${t('printStmtRef')}</strong> APX-MF-${new Date().getFullYear()}</div>
+            <div class="print-meta-line"><strong>${t('printValDate')}</strong> ${valDate}</div>
           </div>
         </div>
         
         <div class="print-investor-card">
-          <div class="print-inv-item"><span class="print-inv-label">Investor Name</span><span class="print-inv-val">${investorName}</span></div>
-          <div class="print-inv-item"><span class="print-inv-label">Identifier (PAN)</span><span class="print-inv-val">${pan}</span></div>
-          <div class="print-inv-item"><span class="print-inv-label">Platform</span><span class="print-inv-val">Groww Demat / Direct</span></div>
-          <div class="print-inv-item"><span class="print-inv-label">Total Holdings</span><span class="print-inv-val">${records.length} Direct Funds</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvName')}</span><span class="print-inv-val">${investorName}</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvPan')}</span><span class="print-inv-val">${pan}</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvPlatform')}</span><span class="print-inv-val">${t('printPlatformGroww')}</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvHoldings')}</span><span class="print-inv-val">${records.length} ${t('printDirectFunds')}</span></div>
         </div>
       </div>
 
@@ -1680,22 +1682,22 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         <div class="print-kpi-card card-indigo">
           <span class="print-kpi-lbl">${t('printDynMfKpiInv')}</span>
           <div class="print-kpi-val">${mfMeta.total_invested_formatted || '₹0.00'}</div>
-          <span class="print-kpi-sub">Cost Basis Principal</span>
+          <span class="print-kpi-sub">${t('printKpiSubCostBasis')}</span>
         </div>
         <div class="print-kpi-card card-blue">
           <span class="print-kpi-lbl">${t('printDynMfKpiCur')}</span>
           <div class="print-kpi-val">${mfMeta.current_value_formatted || '₹0.00'}</div>
-          <span class="print-kpi-sub">Live NAV Market Value</span>
+          <span class="print-kpi-sub">${t('printKpiSubNav')}</span>
         </div>
         <div class="print-kpi-card card-plum">
           <span class="print-kpi-lbl">${t('printDynMfKpiPnl')}</span>
           <div class="print-kpi-val">${mfMeta.profit_loss_formatted || '₹0.00'}</div>
-          <span class="print-kpi-sub">${mfMeta.profit_loss_pct || '0.00%'} Delta</span>
+          <span class="print-kpi-sub">${mfMeta.profit_loss_pct || '0.00%'} ${t('printKpiSubDelta')}</span>
         </div>
         <div class="print-kpi-card card-amber">
           <span class="print-kpi-lbl">${t('printDynMfKpiXirr')}</span>
           <div class="print-kpi-val">${mfMeta.overall_xirr || '1.04%'}</div>
-          <span class="print-kpi-sub">Annualized Compounded Growth</span>
+          <span class="print-kpi-sub">${t('printKpiSubGrowth')}</span>
         </div>
       </div>
 
@@ -1703,13 +1705,13 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       <table class="print-table">
         <thead>
           <tr>
-            <th>Fund Scheme Name</th>
+            <th>${t('printThFund')}</th>
             <th>${t('thAmc')}</th>
-            <th>Folio Number</th>
+            <th>${t('printThFolio')}</th>
             <th class="text-right">${t('thUnits')}</th>
-            <th class="text-right">Invested Cost (₹)</th>
+            <th class="text-right">${t('printThInvCost')}</th>
             <th class="text-right">${t('thCurrent')}</th>
-            <th class="text-right">Net P&amp;L (₹)</th>
+            <th class="text-right">${t('printThPnl')}</th>
             <th class="text-center">${t('thXirr')}</th>
           </tr>
         </thead>
@@ -1729,7 +1731,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         </tbody>
         <tfoot>
           <tr class="print-total-row">
-            <td colspan="4"><strong>TOTAL MUTUAL FUNDS PORTFOLIO</strong></td>
+            <td colspan="4"><strong>${t('printTotalMf')}</strong></td>
             <td class="text-right"><strong>${mfMeta.total_invested_formatted}</strong></td>
             <td class="text-right font-bold"><strong>${mfMeta.current_value_formatted}</strong></td>
             <td class="text-right font-bold" style="color:${mfMeta.profit_loss >= 0 ? '#1E40AF' : '#b91c1c'};"><strong>${mfMeta.profit_loss_formatted}</strong></td>
@@ -1740,7 +1742,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
 
       <div class="print-footer-block">
         <div class="print-disclaimer">
-          <p><strong>Compliance &amp; Valuation Note:</strong> Mutual fund investments are subject to market risks. Net Asset Values (NAV) reflect closing published values.</p>
+          <p><strong>${t('printDisclaimerMfLabel')}</strong> ${t('printDisclaimerMf')}</p>
         </div>
         ${signoffBlockHTML()}
       </div>
@@ -1772,7 +1774,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       waterfallByYear[y].count += 1;
     });
     const waterfallHTML = Object.keys(waterfallByYear).sort().map(y =>
-      '<div class="waterfall-box"><span class="waterfall-year">YEAR ' + y + '</span><span class="waterfall-val">₹' + Math.round(waterfallByYear[y].payout).toLocaleString('en-IN', {minimumFractionDigits:2}) + '</span><span class="waterfall-desc">' + waterfallByYear[y].count + ' Accounts maturing</span></div>').join('');
+      '<div class="waterfall-box"><span class="waterfall-year">' + t('printYearPrefix') + ' ' + y + '</span><span class="waterfall-val">₹' + Math.round(waterfallByYear[y].payout).toLocaleString('en-IN', {minimumFractionDigits:2}) + '</span><span class="waterfall-desc">' + fmt(t('printWaterfallMaturing'), [waterfallByYear[y].count]) + '</span></div>').join('');
     const mfRecords = mf?.records || [];
 
     reportContainer.innerHTML = `
@@ -1782,21 +1784,21 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
             ${brandLogoSVG('print-brand-logo')}
             <div>
               <h1 class="print-brand-name">SWInfoSystems &bull; APEX WEALTH</h1>
-              <p class="print-brand-sub">CONSOLIDATED MULTI-ASSET WEALTH INTELLIGENCE REPORT</p>
+              <p class="print-brand-sub">${t('printConsSub')}</p>
             </div>
           </div>
           <div class="print-meta-box">
-            <div class="print-badge verified">✓ AUDITED &amp; VERIFIED</div>
-            <div class="print-meta-line"><strong>Statement Ref:</strong> APX-CONS-${new Date().getFullYear()}</div>
-            <div class="print-meta-line"><strong>Valuation Date:</strong> ${valDate}</div>
+            <div class="print-badge verified">${t('printBadgeVerified')}</div>
+            <div class="print-meta-line"><strong>${t('printStmtRef')}</strong> APX-CONS-${new Date().getFullYear()}</div>
+            <div class="print-meta-line"><strong>${t('printValDate')}</strong> ${valDate}</div>
           </div>
         </div>
         
         <div class="print-investor-card">
-          <div class="print-inv-item"><span class="print-inv-label">Investor Name</span><span class="print-inv-val">${investorName}</span></div>
-          <div class="print-inv-item"><span class="print-inv-label">Identifier (PAN)</span><span class="print-inv-val">${pan}</span></div>
-          <div class="print-inv-item"><span class="print-inv-label">Asset Platforms</span><span class="print-inv-val">India Post &bull; Groww Demat</span></div>
-          <div class="print-inv-item"><span class="print-inv-label">Audit Scope</span><span class="print-inv-val">${dopRecords.length + mfRecords.length} Consolidated Holdings</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvName')}</span><span class="print-inv-val">${investorName}</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvPan')}</span><span class="print-inv-val">${pan}</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvPlatforms')}</span><span class="print-inv-val">${t('printPlatformsValue')}</span></div>
+          <div class="print-inv-item"><span class="print-inv-label">${t('printInvScope')}</span><span class="print-inv-val">${dopRecords.length + mfRecords.length} ${t('printHoldingsSuffix')}</span></div>
         </div>
       </div>
 
@@ -1805,22 +1807,22 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         <div class="print-kpi-card card-indigo">
           <span class="print-kpi-lbl">${t('printDynConsKpiNet')}</span>
           <div class="print-kpi-val">₹${totNetWorth.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
-          <span class="print-kpi-sub">Total Current Market Valuation</span>
+          <span class="print-kpi-sub">${t('printKpiSubNetVal')}</span>
         </div>
         <div class="print-kpi-card card-blue">
           <span class="print-kpi-lbl">${t('printDynConsKpiDop')}</span>
           <div class="print-kpi-val">₹${dopVal.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
-          <span class="print-kpi-sub">${dopRecords.length} Accounts &bull; ${totNetWorth > 0 ? ((dopVal/totNetWorth)*100).toFixed(1) : 0}% Share</span>
+          <span class="print-kpi-sub">${fmt(t('printKpiSubShareAccts'), [dopRecords.length, totNetWorth > 0 ? ((dopVal/totNetWorth)*100).toFixed(1) : 0])}</span>
         </div>
         <div class="print-kpi-card card-plum">
           <span class="print-kpi-lbl">${t('printDynConsKpiMf')}</span>
           <div class="print-kpi-val">₹${mfCur.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
-          <span class="print-kpi-sub">${mfRecords.length} Direct Schemes &bull; ${totNetWorth > 0 ? ((mfCur/totNetWorth)*100).toFixed(1) : 0}% Share</span>
+          <span class="print-kpi-sub">${fmt(t('printKpiSubShareFunds'), [mfRecords.length, totNetWorth > 0 ? ((mfCur/totNetWorth)*100).toFixed(1) : 0])}</span>
         </div>
         <div class="print-kpi-card card-amber">
           <span class="print-kpi-lbl">${t('printDynConsKpiProj')}</span>
           <div class="print-kpi-val">₹${totProjWealth.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
-          <span class="print-kpi-sub">+₹${(dopInt/100000).toFixed(2)} Lakhs Guaranteed Interest</span>
+          <span class="print-kpi-sub">+₹${(dopInt/100000).toFixed(2)} ${t('printKpiSubLakhs')}</span>
         </div>
       </div>
 
@@ -1828,19 +1830,19 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       <table class="print-table">
         <thead>
           <tr>
-            <th>Asset Class</th>
-            <th>Instrument / Platform</th>
-            <th class="text-center">Holdings</th>
-            <th class="text-right">Cost Basis (₹)</th>
-            <th class="text-right">Current Valuation (₹)</th>
-            <th class="text-right">Allocation (%)</th>
-            <th class="text-right">Projected Realization (₹)</th>
+            <th>${t('printThAsset')}</th>
+            <th>${t('printThInstrument')}</th>
+            <th class="text-center">${t('printThHoldings')}</th>
+            <th class="text-right">${t('printThCost')}</th>
+            <th class="text-right">${t('printThCurrent')}</th>
+            <th class="text-right">${t('printThAlloc')}</th>
+            <th class="text-right">${t('printThProj')}</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><strong>Fixed Income Deposits</strong></td>
-            <td>Post Office (TD, RD, Savings)</td>
+            <td><strong>${t('printRowFixedIncome')}</strong></td>
+            <td>${t('printRowFixedInstr')}</td>
             <td class="text-center">${dopRecords.length}</td>
             <td class="text-right">₹${dopValView.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
             <td class="text-right">₹${dopValView.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
@@ -1848,8 +1850,8 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
             <td class="text-right font-bold" style="color:#1E40AF;">₹${dopProjView.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
           </tr>
           <tr>
-            <td><strong>Equity Mutual Funds</strong></td>
-            <td>Direct Growth Schemes (Groww)</td>
+            <td><strong>${t('printRowEquity')}</strong></td>
+            <td>${t('printRowEquityInstr')}</td>
             <td class="text-center">${mfRecords.length}</td>
             <td class="text-right">₹${mfInv.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
             <td class="text-right">₹${mfCur.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
@@ -1859,7 +1861,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         </tbody>
         <tfoot>
           <tr class="print-total-row">
-            <td colspan="2"><strong>TOTAL CONSOLIDATED PORTFOLIO</strong></td>
+            <td colspan="2"><strong>${t('printTotalCons')}</strong></td>
             <td class="text-center"><strong>${dopRecords.length + mfRecords.length}</strong></td>
             <td class="text-right"><strong>₹${(dopVal + mfInv).toLocaleString('en-IN', {minimumFractionDigits:2})}</strong></td>
             <td class="text-right"><strong>₹${totNetWorth.toLocaleString('en-IN', {minimumFractionDigits:2})}</strong></td>
@@ -1877,11 +1879,11 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
             <th style="width:30px;">#</th>
             <th>${t('thAccNo')}</th>
             <th>${t('thScheme')}</th>
-            <th>Classification</th>
+            <th>${t('printThClass')}</th>
             <th class="text-right">${t('thBalance')}</th>
             <th class="text-right">${t('thMaturity')}</th>
-            <th class="text-center">Open Date</th>
-            <th class="text-center">Maturity Date</th>
+            <th class="text-center">${t('thOpen')}</th>
+            <th class="text-center">${t('thMatDate')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1894,12 +1896,12 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
               <td class="text-right font-bold">${r.balance_formatted}</td>
               <td class="text-right font-bold" style="color:#1E40AF;">${r.projected_maturity_formatted}</td>
               <td class="text-center">${r.open_date || '-'}</td>
-              <td class="text-center">${r.maturity_date || 'Liquid'}</td>
+              <td class="text-center">${r.maturity_date || t('printLiquid')}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
-      ${dopRecords.length > 15 ? `<p style="font-size:6.5pt; color:#64748b; margin-top:-6px; margin-bottom:12px;">* Displaying top 15 key accounts in consolidated report. For the full ${dopRecords.length} accounts schedule, select 'Post Office Full Statement' in Print options.</p>` : ''}
+      ${dopRecords.length > 15 ? `<p style="font-size:6.5pt; color:#64748b; margin-top:-6px; margin-bottom:12px;">* ${fmt(t('printTop15Note'), [dopRecords.length, t('modalScopeDop')])}</p>` : ''}
 
       ${includeWaterfall ? `
         <div class="print-section-title">${t('printDynCons4')}</div>
@@ -1910,7 +1912,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
 
       <div class="print-footer-block">
         <div class="print-disclaimer">
-          <p><strong>Compliance &amp; Verification Note:</strong> Consolidated report represents active financial positions across fixed income and equity assets. All data stored securely in browser local storage.</p>
+          <p><strong>${t('printDisclaimerLabel')}</strong> ${t('printDisclaimerCons')}</p>
         </div>
         ${signoffBlockHTML()}
       </div>
@@ -1919,7 +1921,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
 
   // Shared official footer line on every generated report.
   reportContainer.insertAdjacentHTML('beforeend',
-    `<div class="print-footer-line">SWInfoSystems &bull; Apex Wealth &bull; Portfolio statement &bull; View: ${viewType === 'all' ? 'All account types' : viewLabel()} &bull; Valuation date ${valDate} &bull; Rates applied: RD ${interestRates.RD}% &bull; TD ${interestRates.TD}% &bull; SB ${interestRates.SB}% p.a. &bull; Projections are estimates, not guarantees &bull; ${shouldMask ? 'Identifiers masked' : 'Identifiers unmasked &mdash; handle as sensitive'}</div>`);
+    `<div class="print-footer-line">SWInfoSystems &bull; Apex Wealth &bull; ${t('printFooterStmt')} &bull; ${t('printFooterView')} ${viewType === 'all' ? t('printAllTypes') : viewLabel()} &bull; ${t('printValDate')} ${valDate} &bull; ${t('printFooterRates')} RD ${interestRates.RD}% &bull; TD ${interestRates.TD}% &bull; SB ${interestRates.SB}% p.a. &bull; ${t('printFooterEstimates')} &bull; ${shouldMask ? t('printFooterMasked') : t('printFooterUnmasked')}</div>`);
 }
 
 // ==================== CHART VISUALIZATIONS ====================

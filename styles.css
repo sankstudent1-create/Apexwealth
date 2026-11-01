@@ -1108,6 +1108,7 @@ body.theme-light .onboarding-card {
   body {
     background: #ffffff !important;
     color: #0f172a !important;
+    font-family: 'Poppins', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, sans-serif !important;
     font-size: 9pt !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -1119,6 +1120,7 @@ body.theme-light .onboarding-card {
 
   .print-report-container {
     display: block !important;
+    font-family: 'Poppins', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, sans-serif !important;
     background: #ffffff !important;
     color: #0f172a !important;
     max-width: 100% !important;

@@ -3,22 +3,53 @@ import io
 import re
 import json
 import math
-import xlrd
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-import pandas as pd
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Response
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+
+# --- Optional dependencies -------------------------------------------------
+# The parsing helpers below only need xlrd (DOP .xls) / openpyxl (MF .xlsx).
+# FastAPI is only needed to serve the API; importing this module from the CLI
+# (analyze.py) must not fail when FastAPI is not installed, so the web imports
+# are guarded and replaced with no-op stand-ins when absent.
+try:
+    import xlrd
+except ImportError:
+    xlrd = None
+try:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+except ImportError:
+    openpyxl = None
+try:
+    from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Response
+    from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, StreamingResponse
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.middleware.cors import CORSMiddleware
+    import uvicorn
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
+    class _NoOp(Exception):
+        def __init__(self, *a, **k): pass
+        def __call__(self, *a, **k): return self
+        def __getattr__(self, name):
+            def deco(*a, **k):
+                def wrap(f): return f
+                return wrap
+            return deco
+    FastAPI = UploadFile = File = Form = Query = Response = _NoOp
+    HTTPException = JSONResponse = HTMLResponse = FileResponse = StreamingResponse = _NoOp
+    StaticFiles = CORSMiddleware = _NoOp
+    uvicorn = None
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
+# NOTE: these are the original author's Windows workstation paths. They are only
+# fallbacks: on any other machine they simply do not exist, and the API below
+# reports that cleanly (404) instead of crashing. There is no bundled default
+# file in this repo; pass a file explicitly (see analyze.py) or upload via UI.
 DOP_FILE_PATH = r"C:\Users\swanv\Downloads\AccountSummary25-09-2026.xls"
 MF_FILE_PATH = r"C:\Users\swanv\Downloads\Holdings_Statement_2026-09-25.xlsx"
 STOCKS_FILE_PATH = r"C:\Users\swanv\Downloads\Stocks_Holdings_Statement_3867411651_2026-09-24.xlsx"
@@ -55,6 +86,10 @@ def parse_dop_summary(file_path_or_bytes, is_binary_stream=False, custom_rates=N
     if custom_rates:
         rates.update(custom_rates)
 
+    if xlrd is None:
+        raise RuntimeError("xlrd is not installed (pip install xlrd) — cannot read DOP .xls files.")
+    if not is_binary_stream and not os.path.exists(file_path_or_bytes):
+        raise FileNotFoundError(f"DOP file not found: {file_path_or_bytes}")
     if is_binary_stream:
         wb = xlrd.open_workbook(file_contents=file_path_or_bytes)
     else:
@@ -195,6 +230,10 @@ def parse_dop_summary(file_path_or_bytes, is_binary_stream=False, custom_rates=N
 
 # Mutual Funds Parser
 def parse_groww_holdings(file_path_or_bytes, is_binary_stream=False):
+    if openpyxl is None:
+        raise RuntimeError("openpyxl is not installed (pip install openpyxl) — cannot read MF .xlsx files.")
+    if not is_binary_stream and not os.path.exists(file_path_or_bytes):
+        raise FileNotFoundError(f"MF file not found: {file_path_or_bytes}")
     if is_binary_stream:
         wb = openpyxl.load_workbook(io.BytesIO(file_path_or_bytes), data_only=True)
     else:
@@ -314,8 +353,12 @@ async def get_analysis(
 ):
     custom_rates = {"rd_rate": rd_rate, "td_rate": td_rate, "sb_rate": sb_rate}
     if asset_source == "mf":
+        if not os.path.exists(MF_FILE_PATH):
+            raise HTTPException(status_code=404, detail=f"MF holdings file not found on this machine: {MF_FILE_PATH}")
         return parse_groww_holdings(MF_FILE_PATH)
     elif asset_source == "dop":
+        if not os.path.exists(DOP_FILE_PATH):
+            raise HTTPException(status_code=404, detail=f"DOP summary file not found on this machine: {DOP_FILE_PATH}")
         return parse_dop_summary(DOP_FILE_PATH, custom_rates=custom_rates)
     else:
         return get_consolidated_portfolio(custom_rates=custom_rates)
@@ -336,6 +379,11 @@ async def get_root_data_js():
     js_path = os.path.join(STATIC_DIR, "portfolio_data.js")
     return FileResponse(js_path, media_type="application/javascript")
 
+@app.get("/i18n.js")
+async def get_root_i18n_js():
+    js_path = os.path.join(STATIC_DIR, "i18n.js")
+    return FileResponse(js_path, media_type="application/javascript")
+
 # Mount /static directory as well
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -345,5 +393,9 @@ async def get_index():
     return FileResponse(index_path)
 
 if __name__ == "__main__":
+    if not FASTAPI_AVAILABLE:
+        print("FastAPI is not installed (pip install fastapi uvicorn) — cannot start the API server.")
+        print("The static front end still works: python3 -m http.server --directory static 8080")
+        raise SystemExit(2)
     print("Starting Apex Wealth Portfolio Hub on http://127.0.0.1:8080")
     uvicorn.run(app, host="127.0.0.1", port=8080)

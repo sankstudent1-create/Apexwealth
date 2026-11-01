@@ -62,9 +62,148 @@ let pageSize = 25;
 let currentSort = { column: 'id', asc: true };
 let currentFilterChip = 'all';
 let chartMode = 'payout'; // 'payout', 'count'
-let isMasked = false;
-let isLightTheme = false;
+let isMasked = true; // masked by default: full numbers only after an explicit Unmask click
+let isLightTheme = true; // calm light theme is the default; dark remains a toggle option
 let isDemoMode = false;
+
+// ---------------- Editable interest rates (defaults match server DEFAULT_RATES) ----------------
+const DEFAULT_RATES = { RD: 6.7, TD: 6.9, SB: 4.0 };
+function loadStoredRates() {
+  try {
+    const s = JSON.parse(localStorage.getItem('apex_rates_v1') || 'null');
+    if (s && [s.RD, s.TD, s.SB].every(v => isFinite(+v) && +v >= 0 && +v <= 20)) {
+      return { RD: +s.RD, TD: +s.TD, SB: +s.SB };
+    }
+  } catch (e) { /* fall through to defaults */ }
+  return { ...DEFAULT_RATES };
+}
+let interestRates = loadStoredRates();
+let schemeFilter = 'all';
+let maturityYearFilter = 'all';
+function saveStoredRates() {
+  try { localStorage.setItem('apex_rates_v1', JSON.stringify(interestRates)); } catch (e) { /* private mode */ }
+}
+// RD unit maturity for a Rs 100/month, 60-month RD — same quarterly-compounding
+// loop as server.py calculate_rd_maturity, so the client and server agree at any rate.
+function rdUnitMaturity(rate) {
+  const q = (rate / 100) / 4;
+  let total = 0;
+  for (let m = 0; m < 60; m++) total += 100 * Math.pow(1 + q, (60 - m) / 3);
+  return Math.round(total * 100) / 100;
+}
+function inr(n) { return `\u20B9${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`; }
+function recomputeDopRecord(r) {
+  const bal = r.balance || 0;
+  let proj = bal, intr = 0, yld = 0;
+  if (r.category_code === 'RD') {
+    const unit = rdUnitMaturity(interestRates.RD);
+    const mult = bal > 0 ? bal / 100 : 1;
+    proj = Math.round(unit * mult * 100) / 100;
+    intr = Math.round((unit - 6000) * mult * 100) / 100;
+    yld = Math.round((intr / 5) * 100) / 100;
+  } else if (r.category_code === 'TD') {
+    const q = (interestRates.TD / 100) / 4;
+    proj = Math.round(bal * Math.pow(1 + q, 4) * 100) / 100;
+    intr = Math.round((proj - bal) * 100) / 100;
+    yld = intr;
+  } else if (r.category_code === 'SB') {
+    proj = bal; intr = 0;
+    yld = Math.round(bal * (interestRates.SB / 100) * 100) / 100;
+  }
+  r.projected_maturity_value = proj;
+  r.projected_maturity_formatted = inr(proj);
+  r.projected_total_interest = intr;
+  r.projected_interest_formatted = inr(intr);
+  r.annual_yield = yld;
+  return r;
+}
+function recomputeDopPortfolio(dop) {
+  if (!dop || !Array.isArray(dop.records)) return dop;
+  dop.records.forEach(recomputeDopRecord);
+  const totBal = dop.records.reduce((s, r) => s + r.balance, 0);
+  const totProj = dop.records.reduce((s, r) => s + r.projected_maturity_value, 0);
+  const totInt = dop.records.reduce((s, r) => s + r.projected_total_interest, 0);
+  const totYld = dop.records.reduce((s, r) => s + r.annual_yield, 0);
+  dop.metadata = dop.metadata || {};
+  dop.metadata.total_balance = totBal;
+  dop.metadata.total_balance_formatted = inr(totBal);
+  dop.metadata.total_projected_maturity = totProj;
+  dop.metadata.total_projected_maturity_formatted = inr(totProj);
+  dop.metadata.total_projected_interest = totInt;
+  dop.metadata.total_projected_interest_formatted = inr(totInt);
+  dop.metadata.total_annual_yield = totYld;
+  dop.metadata.total_annual_yield_formatted = inr(totYld);
+  return dop;
+}
+// Recompute stored + in-memory DOP data at the current rates, then refresh the
+// consolidated summary so hero/KPI/print figures all move together.
+function refreshRatesInActiveData() {
+  const stored = StorageService.getDop();
+  // Persist the recomputed projections: renderConsolidatedView re-reads DOP
+  // from localStorage, so without this the Consolidated ledger kept showing
+  // stale projections while the DOP tab showed the new ones.
+  if (stored) { recomputeDopPortfolio(stored); StorageService.setDop(stored); }
+  const dop = activeData?.dop_portfolio || (activeData?.asset_type === 'POST_OFFICE' ? activeData : null);
+  if (dop && dop !== stored) recomputeDopPortfolio(dop);
+  if (activeData?.asset_type === 'CONSOLIDATED') {
+    const d = StorageService.getDop() || activeData.dop_portfolio;
+    const m = StorageService.getMf() || activeData.mf_portfolio;
+    activeData.summary = getConsolidatedFromData(d, m).summary;
+    activeData.dop_portfolio = d;
+    activeData.mf_portfolio = m;
+  }
+}
+function syncRateInputs() {
+  const rd = document.getElementById('rateRd');
+  const td = document.getElementById('rateTd');
+  const sb = document.getElementById('rateSb');
+  if (rd) rd.value = interestRates.RD;
+  if (td) td.value = interestRates.TD;
+  if (sb) sb.value = interestRates.SB;
+}
+function handleRateChange() {
+  const rd = parseFloat(document.getElementById('rateRd').value);
+  const td = parseFloat(document.getElementById('rateTd').value);
+  const sb = parseFloat(document.getElementById('rateSb').value);
+  if ([rd, td, sb].some(v => !isFinite(v) || v < 0 || v > 20)) {
+    showToast('Rates must be between 0 and 20%. Previous rates kept.', 'error');
+    syncRateInputs();
+    return;
+  }
+  interestRates = { RD: rd, TD: td, SB: sb };
+  saveStoredRates();
+  refreshRatesInActiveData();
+  renderActiveView();
+}
+function refreshMaturityYearOptions() {
+  const sel = document.getElementById('selectMaturityYear');
+  if (!sel) return;
+  const years = [...new Set(allRecords.map(r => (String(r.maturity_date || '').match(/(20\d{2})/) || [])[1]).filter(Boolean))].sort();
+  const prev = maturityYearFilter;
+  sel.innerHTML = '<option value="all">' + t('allYears') + '</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+  maturityYearFilter = years.includes(prev) ? prev : 'all';
+  sel.value = maturityYearFilter;
+}
+function applySavedPreferences() {
+  try {
+    const theme = localStorage.getItem('apex_theme');
+    if (theme === 'dark') isLightTheme = false;
+    else if (theme === 'light') isLightTheme = true;
+    const masked = localStorage.getItem('apex_masked');
+    if (masked === '0') isMasked = false;
+    else if (masked === '1') isMasked = true;
+  } catch (e) { /* private mode: defaults stand */ }
+  document.body.classList.toggle('theme-light', isLightTheme);
+  const pText = document.getElementById('privacyText');
+  if (pText) pText.textContent = isMasked ? t('privacyUnmask') : t('privacyMask');
+  const pIcon = document.getElementById('privacyIcon');
+  if (pIcon) pIcon.setAttribute('data-lucide', isMasked ? 'eye' : 'eye-off');
+  const tIcon = document.getElementById('themeIcon');
+  if (tIcon) tIcon.setAttribute('data-lucide', isLightTheme ? 'moon' : 'sun');
+  const maskChk = document.getElementById('chkIncludeMask');
+  if (maskChk) maskChk.checked = isMasked;
+  syncRateInputs();
+}
 
 // Chart Instances
 let donutChart = null;
@@ -73,6 +212,7 @@ let barChart = null;
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
+  applySavedPreferences();
   setupEventListeners();
   initPortfolioState();
 });
@@ -84,6 +224,23 @@ function setupEventListeners() {
       document.querySelectorAll('.portfolio-switcher .switch-tab').forEach(b => b.classList.remove('active'));
       e.currentTarget.classList.add('active');
       currentAsset = e.currentTarget.getAttribute('data-asset');
+      // Load the dataset for the selected tab: previously renderActiveView ran
+      // against whatever activeData the previous tab had built, so switching
+      // from Consolidated to Post Office showed empty/zero figures.
+      if (currentAsset === 'dop') {
+        activeData = StorageService.getDop() || activeData?.dop_portfolio
+          || (activeData?.asset_type === 'POST_OFFICE' ? activeData : null);
+      } else if (currentAsset === 'mf') {
+        activeData = StorageService.getMf() || activeData?.mf_portfolio
+          || (activeData?.asset_type === 'MUTUAL_FUNDS' ? activeData : null);
+      } else {
+        const dopSrc = StorageService.getDop() || activeData?.dop_portfolio
+          || (activeData?.asset_type === 'POST_OFFICE' ? activeData : null);
+        const mfSrc = StorageService.getMf() || activeData?.mf_portfolio
+          || (activeData?.asset_type === 'MUTUAL_FUNDS' ? activeData : null);
+        activeData = getConsolidatedFromData(dopSrc, mfSrc);
+      }
+      if (activeData) refreshRatesInActiveData();
       renderActiveView();
     });
   });
@@ -91,7 +248,10 @@ function setupEventListeners() {
   // Privacy Masking Toggle
   document.getElementById('btnPrivacy').addEventListener('click', () => {
     isMasked = !isMasked;
-    document.getElementById('privacyText').textContent = isMasked ? 'Unmask' : 'Mask Data';
+    try { localStorage.setItem('apex_masked', isMasked ? '1' : '0'); } catch (e) { /* private mode */ }
+    const maskChk = document.getElementById('chkIncludeMask');
+    if (maskChk) maskChk.checked = isMasked;
+    document.getElementById('privacyText').textContent = isMasked ? t('privacyUnmask') : t('privacyMask');
     const icon = document.getElementById('privacyIcon');
     icon.setAttribute('data-lucide', isMasked ? 'eye' : 'eye-off');
     renderTable();
@@ -103,6 +263,7 @@ function setupEventListeners() {
   // Theme Toggle (Dark / Light)
   document.getElementById('btnThemeToggle').addEventListener('click', () => {
     isLightTheme = !isLightTheme;
+    try { localStorage.setItem('apex_theme', isLightTheme ? 'light' : 'dark'); } catch (e) { /* private mode */ }
     document.body.classList.toggle('theme-light', isLightTheme);
     const icon = document.getElementById('themeIcon');
     icon.setAttribute('data-lucide', isLightTheme ? 'moon' : 'sun');
@@ -165,6 +326,25 @@ function setupEventListeners() {
     btnClear.classList.add('hidden');
     applyFilters();
   });
+
+  // Interest-rate inputs + reset (live recompute)
+  ['rateRd', 'rateTd', 'rateSb'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', handleRateChange);
+  });
+  const btnResetRates = document.getElementById('btnResetRates');
+  if (btnResetRates) btnResetRates.addEventListener('click', () => {
+    interestRates = { ...DEFAULT_RATES };
+    saveStoredRates();
+    syncRateInputs();
+    refreshRatesInActiveData();
+    renderActiveView();
+    showToast('Rates reset to defaults (RD 6.7 / TD 6.9 / SB 4.0).', 'info');
+  });
+  const schemeSel = document.getElementById('selectSchemeFilter');
+  if (schemeSel) schemeSel.addEventListener('change', (e) => { schemeFilter = e.target.value; applyFilters(); });
+  const matSel = document.getElementById('selectMaturityYear');
+  if (matSel) matSel.addEventListener('change', (e) => { maturityYearFilter = e.target.value; applyFilters(); });
 
   // Page Size Select
   document.getElementById('selectPageSize').addEventListener('change', (e) => {
@@ -282,6 +462,7 @@ function initPortfolioState() {
     document.getElementById('dashboardContainer').classList.remove('hidden');
     document.getElementById('storageStatusText').textContent = 'Viewing Sample Demo Portfolio (Upload your files to analyze your own portfolio)';
     activeData = getConsolidatedFromData(window.DEFAULT_PORTFOLIO_DATA.dop, window.DEFAULT_PORTFOLIO_DATA.mf);
+    refreshRatesInActiveData();
     renderActiveView();
   } else {
     // First time clean launch: No data loaded by default
@@ -320,6 +501,7 @@ function loadActivePortfolioFromStorage() {
     activeData = getConsolidatedFromData(dop, mf);
   }
 
+  refreshRatesInActiveData();
   renderActiveView();
 }
 
@@ -522,20 +704,21 @@ function parseClientExcelData(rows, fileName, expectedType = 'auto') {
     if (accLower.includes('recurring')) {
       catCode = 'RD';
       const multiplier = bal > 0 ? bal / 100.0 : 1.0;
-      projMat = Math.round(7136.58 * multiplier * 100) / 100;
-      projInt = Math.round(1136.58 * multiplier * 100) / 100;
+      const rdUnit = rdUnitMaturity(interestRates.RD);
+      projMat = Math.round(rdUnit * multiplier * 100) / 100;
+      projInt = Math.round((rdUnit - 6000) * multiplier * 100) / 100;
       yieldVal = Math.round((projInt / 5.0) * 100) / 100;
       tier = 'Micro RD (₹100/mo)';
     } else if (accLower.includes('time deposit')) {
       catCode = 'TD';
-      const qRate = (7.1 / 100.0) / 4.0;
+      const qRate = (interestRates.TD / 100.0) / 4.0; // was hardcoded 7.1, contradicting the 6.9% TD rate used by server.py and the print notes
       projMat = Math.round(bal * Math.pow(1 + qRate, 4) * 100) / 100;
       projInt = Math.round((projMat - bal) * 100) / 100;
       yieldVal = projInt;
       tier = bal >= 50000 ? 'High Net Worth (₹50k+)' : 'Standard TD';
     } else if (accLower.includes('savings')) {
       catCode = 'SB';
-      yieldVal = Math.round(bal * 0.04 * 100) / 100;
+      yieldVal = Math.round(bal * (interestRates.SB / 100) * 100) / 100;
       tier = 'Liquid Savings';
     }
 
@@ -599,8 +782,11 @@ function renderActiveView() {
     renderMutualFundsView();
   }
 
+  refreshMaturityYearOptions();
   renderCharts();
-  renderTable();
+  // Populate the ledger on first render: filteredRecords starts empty, and
+  // without this the table showed "No records" until the user touched a filter.
+  applyFilters();
   updatePrintStatement();
 }
 
@@ -611,33 +797,33 @@ function renderConsolidatedView() {
 
   document.getElementById('heroAssetBadge').innerHTML = '<i data-lucide="layers"></i> Consolidated Overview';
   document.getElementById('heroInvestorName').innerHTML = `<i data-lucide="user"></i> Portfolio Investor &bull; XXXXX1234X`;
-  document.getElementById('heroValLabel').textContent = 'Consolidated Net Worth';
+  document.getElementById('heroValLabel').textContent = t('heroValCons');
   document.getElementById('heroValAmount').textContent = sum.total_net_worth_formatted;
-  document.getElementById('heroSummaryText').innerHTML = `Aggregated assets across <strong>Post Office Fixed Income (${sum.dop_book_balance_formatted})</strong> and <strong>Equity Mutual Funds (${sum.mf_current_value_formatted})</strong>. Projected total maturity wealth is <strong class="text-emerald">${sum.total_projected_wealth_formatted}</strong> upon maturity cycle completion.`;
+  document.getElementById('heroSummaryText').innerHTML = fmt(t('heroSumCons'), ['<strong>' + sum.dop_book_balance_formatted + '</strong>', '<strong>' + sum.mf_current_value_formatted + '</strong>', '<strong class="text-emerald">' + sum.total_projected_wealth_formatted + '</strong>']);
 
-  document.getElementById('heroStatTitle1').textContent = 'Total Asset Holdings';
+  document.getElementById('heroStatTitle1').textContent = t('heroStatCons1');
   document.getElementById('heroStatNum1').textContent = `${sum.total_holdings_count || 0} Holdings`;
-  document.getElementById('heroStatTitle2').textContent = 'Cost Basis / Principal';
+  document.getElementById('heroStatTitle2').textContent = t('heroStatCons2');
   document.getElementById('heroStatNum2').textContent = sum.total_principal_formatted || sum.dop_book_balance_formatted;
-  document.getElementById('heroStatTitle3').textContent = 'Projected Total Wealth';
+  document.getElementById('heroStatTitle3').textContent = t('heroStatCons3');
   document.getElementById('heroStatNum3').textContent = sum.total_projected_wealth_formatted;
 
-  document.getElementById('kpiLabel1').textContent = 'Fixed Income (DOP)';
+  document.getElementById('kpiLabel1').textContent = t('kpiCons1');
   document.getElementById('kpiVal1').textContent = sum.dop_book_balance_formatted;
   document.getElementById('kpiBadge1').textContent = `${dop?.records?.length || 0} Accounts`;
   document.getElementById('kpiNote1').textContent = 'DOP Allocation';
 
-  document.getElementById('kpiLabel2').textContent = 'Mutual Funds (Equity)';
+  document.getElementById('kpiLabel2').textContent = t('kpiCons2');
   document.getElementById('kpiVal2').textContent = sum.mf_current_value_formatted;
   document.getElementById('kpiBadge2').textContent = `${mf?.records?.length || 0} Direct Funds`;
   document.getElementById('kpiNote2').textContent = 'Market NAV';
 
-  document.getElementById('kpiLabel3').textContent = 'Portfolio XIRR';
+  document.getElementById('kpiLabel3').textContent = t('kpiCons3');
   document.getElementById('kpiVal3').textContent = mf?.metadata?.overall_xirr || '1.04% XIRR';
   document.getElementById('kpiBadge3').textContent = 'Annualized';
   document.getElementById('kpiNote3').textContent = 'Compounded Rate';
 
-  document.getElementById('kpiLabel4').textContent = 'Projected Gain';
+  document.getElementById('kpiLabel4').textContent = t('kpiCons4');
   document.getElementById('kpiVal4').textContent = sum.projected_gain_formatted || '+₹35.61 Lakhs';
   document.getElementById('kpiBadge4').textContent = 'Maturity Realization';
   document.getElementById('kpiNote4').textContent = 'Guaranteed + Market';
@@ -652,15 +838,15 @@ function renderPostOfficeView() {
 
   document.getElementById('heroAssetBadge').innerHTML = '<i data-lucide="landmark"></i> Post Office Fixed Income';
   document.getElementById('heroInvestorName').innerHTML = '<i data-lucide="map-pin"></i> Regional Post Office S.O &bull; DOP Ledger';
-  document.getElementById('heroValLabel').textContent = 'Fixed Income Book Value';
+  document.getElementById('heroValLabel').textContent = t('heroValDop');
   document.getElementById('heroValAmount').textContent = meta.total_balance_formatted || '₹0.00';
-  document.getElementById('heroSummaryText').innerHTML = `Ledger contains <strong>${meta.parsed_rows || allRecords.length} active accounts</strong> at <strong>Regional Post Office S.O</strong>. Estimated maturity realization payout is <strong class="text-emerald">${meta.total_projected_maturity_formatted || '₹0.00'}</strong> (+${meta.total_projected_interest_formatted || '₹0.00'} interest gain).`;
+  document.getElementById('heroSummaryText').innerHTML = fmt(t('heroSumDop'), ['<strong>' + (meta.parsed_rows || allRecords.length) + '</strong>', '<strong class="text-emerald">' + (meta.total_projected_maturity_formatted || '₹0.00') + '</strong>', (meta.total_projected_interest_formatted || '₹0.00')]);
 
-  document.getElementById('heroStatTitle1').textContent = 'Active Accounts';
+  document.getElementById('heroStatTitle1').textContent = t('heroStatDop1');
   document.getElementById('heroStatNum1').textContent = `${meta.parsed_rows || allRecords.length} Accounts`;
-  document.getElementById('heroStatTitle2').textContent = 'Book Ledger Balance';
+  document.getElementById('heroStatTitle2').textContent = t('heroStatDop2');
   document.getElementById('heroStatNum2').textContent = meta.total_balance_formatted || '₹0.00';
-  document.getElementById('heroStatTitle3').textContent = 'Projected Realization';
+  document.getElementById('heroStatTitle3').textContent = t('heroStatDop3');
   document.getElementById('heroStatNum3').textContent = meta.total_projected_maturity_formatted || '₹0.00';
 
   const tdRecords = allRecords.filter(r => r.category_code === 'TD');
@@ -671,22 +857,22 @@ function renderPostOfficeView() {
   const rdSum = rdRecords.reduce((s, r) => s + r.balance, 0);
   const sbSum = sbRecords.reduce((s, r) => s + r.balance, 0);
 
-  document.getElementById('kpiLabel1').textContent = 'Time Deposits (TD)';
+  document.getElementById('kpiLabel1').textContent = t('kpiDop1');
   document.getElementById('kpiVal1').textContent = `₹${tdSum.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
   document.getElementById('kpiBadge1').textContent = `${tdRecords.length} Accounts`;
   document.getElementById('kpiNote1').textContent = '1-Year Term';
 
-  document.getElementById('kpiLabel2').textContent = 'Recurring Deposits (RD)';
+  document.getElementById('kpiLabel2').textContent = t('kpiDop2');
   document.getElementById('kpiVal2').textContent = `₹${rdSum.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
   document.getElementById('kpiBadge2').textContent = `${rdRecords.length} Accounts`;
   document.getElementById('kpiNote2').textContent = '5-Yr Cumulative';
 
-  document.getElementById('kpiLabel3').textContent = 'Savings Bank (SB)';
+  document.getElementById('kpiLabel3').textContent = t('kpiDop3');
   document.getElementById('kpiVal3').textContent = `₹${sbSum.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
   document.getElementById('kpiBadge3').textContent = `${sbRecords.length} Account`;
   document.getElementById('kpiNote3').textContent = '4.0% Yield';
 
-  document.getElementById('kpiLabel4').textContent = 'Estimated Net Interest';
+  document.getElementById('kpiLabel4').textContent = t('kpiDop4');
   document.getElementById('kpiVal4').textContent = `+${meta.total_projected_interest_formatted || '₹0.00'}`;
   document.getElementById('kpiBadge4').textContent = 'Quarterly Compounded';
   document.getElementById('kpiNote4').textContent = 'Guaranteed Yield';
@@ -700,35 +886,35 @@ function renderMutualFundsView() {
 
   document.getElementById('heroAssetBadge').innerHTML = '<i data-lucide="trending-up"></i> Equity Mutual Funds &amp; Stocks';
   document.getElementById('heroInvestorName').innerHTML = `<i data-lucide="user"></i> Portfolio Investor &bull; XXXXX1234X`;
-  document.getElementById('heroValLabel').textContent = 'Current Portfolio Valuation';
+  document.getElementById('heroValLabel').textContent = t('heroValMf');
   document.getElementById('heroValAmount').textContent = meta.current_value_formatted || '₹0.00';
   
   const isGain = (meta.profit_loss || 0) >= 0;
-  document.getElementById('heroSummaryText').innerHTML = `Total invested cost of <strong>${meta.total_invested_formatted || '₹0.00'}</strong> across <strong>${meta.holdings_count || allRecords.length} Direct Plan schemes</strong>. Net returns: <strong class="${isGain ? 'text-emerald' : 'text-rose'}">${meta.profit_loss_formatted || '₹0.00'} (${meta.profit_loss_pct || '0.00%'})</strong> &bull; Portfolio XIRR: <strong class="text-emerald">${meta.overall_xirr || '1.04%'}</strong>.`;
+  document.getElementById('heroSummaryText').innerHTML = fmt(t('heroSumMf'), [meta.total_invested_formatted || '₹0.00', meta.holdings_count || allRecords.length, '<strong class="' + (isGain ? 'text-emerald' : 'text-rose') + '">' + (meta.profit_loss_formatted || '₹0.00') + '</strong>', meta.profit_loss_pct || '0.00%', '<strong class="text-emerald">' + (meta.overall_xirr || '1.04%') + '</strong>']);
 
-  document.getElementById('heroStatTitle1').textContent = 'Direct Funds';
+  document.getElementById('heroStatTitle1').textContent = t('heroStatMf1');
   document.getElementById('heroStatNum1').textContent = `${meta.holdings_count || allRecords.length} Funds`;
-  document.getElementById('heroStatTitle2').textContent = 'Cost Basis Invested';
+  document.getElementById('heroStatTitle2').textContent = t('heroStatMf2');
   document.getElementById('heroStatNum2').textContent = meta.total_invested_formatted || '₹0.00';
-  document.getElementById('heroStatTitle3').textContent = 'Annualized Return';
+  document.getElementById('heroStatTitle3').textContent = t('heroStatMf3');
   document.getElementById('heroStatNum3').textContent = meta.overall_xirr || '1.04% XIRR';
 
-  document.getElementById('kpiLabel1').textContent = 'Market Valuation';
+  document.getElementById('kpiLabel1').textContent = t('kpiMf1');
   document.getElementById('kpiVal1').textContent = meta.current_value_formatted || '₹0.00';
   document.getElementById('kpiBadge1').textContent = meta.profit_loss_pct || '0.00%';
   document.getElementById('kpiNote1').textContent = 'Current NAV';
 
-  document.getElementById('kpiLabel2').textContent = 'Total Capital Invested';
+  document.getElementById('kpiLabel2').textContent = t('kpiMf2');
   document.getElementById('kpiVal2').textContent = meta.total_invested_formatted || '₹0.00';
   document.getElementById('kpiBadge2').textContent = `${allRecords.length} Schemes`;
   document.getElementById('kpiNote2').textContent = 'Cost Basis';
 
-  document.getElementById('kpiLabel3').textContent = 'Portfolio XIRR';
+  document.getElementById('kpiLabel3').textContent = t('kpiMf3');
   document.getElementById('kpiVal3').textContent = meta.overall_xirr || '1.04%';
   document.getElementById('kpiBadge3').textContent = 'Annualized';
   document.getElementById('kpiNote3').textContent = 'Compounded Rate';
 
-  document.getElementById('kpiLabel4').textContent = 'Net Profit / Loss';
+  document.getElementById('kpiLabel4').textContent = t('kpiMf4');
   document.getElementById('kpiVal4').textContent = meta.profit_loss_formatted || '₹0.00';
   document.getElementById('kpiVal4').className = isGain ? 'kpi-box-val text-emerald' : 'kpi-box-val text-rose';
   document.getElementById('kpiBadge4').textContent = isGain ? 'Profit' : 'Unrealized Loss';
@@ -739,50 +925,50 @@ function renderMutualFundsView() {
 
 // ==================== TABLE STRUCTURES & FILTERS ====================
 function setupPostOfficeTable() {
-  document.getElementById('tableSectionTitle').textContent = 'Post Office Accounts Directory';
+  document.getElementById('tableSectionTitle').textContent = t('tableTitleDop');
   document.getElementById('filterChipsWrap').innerHTML = `
-    <button class="chip-btn active" data-filter="all">All Accounts (${allRecords.length})</button>
-    <button class="chip-btn" data-filter="TD">Time Deposits</button>
-    <button class="chip-btn" data-filter="RD">Recurring Deposits</button>
-    <button class="chip-btn" data-filter="SB">Savings Bank</button>
-    <button class="chip-btn" data-filter="high">High Value (≥ ₹10k)</button>
+    <button class="chip-btn active" data-filter="all">${t('chipAllAccounts')} (${allRecords.length})</button>
+    <button class="chip-btn" data-filter="TD">${t('chipTd')}</button>
+    <button class="chip-btn" data-filter="RD">${t('chipRd')}</button>
+    <button class="chip-btn" data-filter="SB">${t('chipSb')}</button>
+    <button class="chip-btn" data-filter="high">${t('chipHigh')}</button>
   `;
   document.getElementById('tableHead').innerHTML = `
     <tr>
       <th>#</th>
-      <th>Account Number</th>
-      <th>Scheme Type</th>
-      <th>Tier</th>
-      <th class="text-right">Balance (₹)</th>
-      <th class="text-right">Est. Maturity (₹)</th>
-      <th>Open Date</th>
-      <th>Maturity Date</th>
-      <th class="text-center">Action</th>
+      <th>${t('thAccNo')}</th>
+      <th>${t('thScheme')}</th>
+      <th>${t('thTier')}</th>
+      <th class="text-right">${t('thBalance')}</th>
+      <th class="text-right">${t('thMaturity')}</th>
+      <th>${t('thOpen')}</th>
+      <th>${t('thMatDate')}</th>
+      <th class="text-center">${t('thAction')}</th>
     </tr>
   `;
   attachFilterEvents();
 }
 
 function setupMutualFundsTable() {
-  document.getElementById('tableSectionTitle').textContent = 'Mutual Funds Portfolio Ledger';
+  document.getElementById('tableSectionTitle').textContent = t('tableTitleMf');
   document.getElementById('filterChipsWrap').innerHTML = `
-    <button class="chip-btn active" data-filter="all">All Funds (${allRecords.length})</button>
-    <button class="chip-btn" data-filter="profit">Profitable (+)</button>
-    <button class="chip-btn" data-filter="loss">Loss (-)</button>
-    <button class="chip-btn" data-filter="midcap">Mid Cap</button>
-    <button class="chip-btn" data-filter="thematic">Thematic</button>
+    <button class="chip-btn active" data-filter="all">${t('chipAllFunds')} (${allRecords.length})</button>
+    <button class="chip-btn" data-filter="profit">${t('chipProfit')}</button>
+    <button class="chip-btn" data-filter="loss">${t('chipLoss')}</button>
+    <button class="chip-btn" data-filter="midcap">${t('chipMidcap')}</button>
+    <button class="chip-btn" data-filter="thematic">${t('chipThematic')}</button>
   `;
   document.getElementById('tableHead').innerHTML = `
     <tr>
       <th>#</th>
-      <th>Scheme Name</th>
-      <th>AMC &bull; Category</th>
-      <th class="text-right">Units</th>
-      <th class="text-right">Invested (₹)</th>
-      <th class="text-right">Current Value (₹)</th>
-      <th class="text-right">Net P&L (₹)</th>
-      <th class="text-center">XIRR</th>
-      <th class="text-center">Action</th>
+      <th>${t('thSchemeName')}</th>
+      <th>${t('thAmc')}</th>
+      <th class="text-right">${t('thUnits')}</th>
+      <th class="text-right">${t('thInvested')}</th>
+      <th class="text-right">${t('thCurrent')}</th>
+      <th class="text-right">${t('thPnl')}</th>
+      <th class="text-center">${t('thXirr')}</th>
+      <th class="text-center">${t('thAction')}</th>
     </tr>
   `;
   attachFilterEvents();
@@ -811,6 +997,15 @@ function applyFilters() {
       } else {
         const str = `${r.account_number} ${r.account_type} ${r.tier} ${r.balance}`.toLowerCase();
         if (!str.includes(query)) return false;
+      }
+    }
+
+    // Scheme + maturity-year filters (Post Office ledger only; ignored for MF rows)
+    if (!(currentAsset === 'mf' || r.scheme_name)) {
+      if (schemeFilter !== 'all' && r.category_code !== schemeFilter) return false;
+      if (maturityYearFilter !== 'all') {
+        const my = (String(r.maturity_date || '').match(/(20\d{2})/) || [])[1];
+        if (my !== maturityYearFilter) return false;
       }
     }
 
@@ -873,7 +1068,7 @@ function renderTable() {
         <td>${start + idx + 1}</td>
         <td class="font-mono font-bold" style="color:var(--color-brand);">${accDisplay}</td>
         <td>${r.account_type}</td>
-        <td><span class="badge-tag badge-blue">${r.tier}</span></td>
+        <td><span class="badge-tag badge-scheme badge-${(r.category_code || 'other').toLowerCase()}">${r.tier}</span></td>
         <td class="text-right font-bold">${r.balance_formatted}</td>
         <td class="text-right font-bold text-emerald">${r.projected_maturity_formatted}</td>
         <td>${r.open_date || '-'}</td>
@@ -886,6 +1081,8 @@ function renderTable() {
 
   const endIdx = Math.min(start + pageSize, filteredRecords.length);
   document.getElementById('pageInfoText').textContent = `Showing ${start + 1} to ${endIdx} of ${filteredRecords.length} records`;
+  const countBadge = document.getElementById('tableCountBadge');
+  if (countBadge) countBadge.textContent = `${filteredRecords.length} Records`;
 
   renderPaginationControls();
 }
@@ -1001,32 +1198,32 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       </div>
 
       <!-- KPI Grid -->
-      <div class="print-section-title">1. FIXED INCOME CAPITAL &amp; MATURITY VALUATION</div>
+      <div class="print-section-title">${t('printDynDop1')}</div>
       <div class="print-kpi-grid">
         <div class="print-kpi-card card-navy">
-          <span class="print-kpi-lbl">Book Ledger Balance</span>
+          <span class="print-kpi-lbl">${t('printDynDopKpiBook')}</span>
           <div class="print-kpi-val">${dopMeta.total_balance_formatted || '₹0.00'}</div>
           <span class="print-kpi-sub">Total Current Deposits</span>
         </div>
         <div class="print-kpi-card card-cobalt">
-          <span class="print-kpi-lbl">Time Deposits (TD)</span>
+          <span class="print-kpi-lbl">${t('printDynDopKpiTd')}</span>
           <div class="print-kpi-val">₹${tdRecs.reduce((s,r)=>s+r.balance,0).toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
           <span class="print-kpi-sub">${tdRecs.length} Accounts &bull; 1-Yr Quarterly</span>
         </div>
         <div class="print-kpi-card card-emerald">
-          <span class="print-kpi-lbl">Recurring Deposits (RD)</span>
+          <span class="print-kpi-lbl">${t('printDynDopKpiRd')}</span>
           <div class="print-kpi-val">₹${rdRecs.reduce((s,r)=>s+r.balance,0).toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
           <span class="print-kpi-sub">${rdRecs.length} Accounts &bull; 5-Yr Cumulative</span>
         </div>
         <div class="print-kpi-card card-purple">
-          <span class="print-kpi-lbl">Projected Maturity Payout</span>
+          <span class="print-kpi-lbl">${t('printDynDopKpiProj')}</span>
           <div class="print-kpi-val">${dopMeta.total_projected_maturity_formatted || '₹0.00'}</div>
           <span class="print-kpi-sub">+${dopMeta.total_projected_interest_formatted || '₹0.00'} Net Interest</span>
         </div>
       </div>
 
       <!-- Scheme Distribution Summary -->
-      <div class="print-section-title">2. DEPOSIT SCHEME SUMMARY</div>
+      <div class="print-section-title">${t('printDynDop2')}</div>
       <table class="print-table">
         <thead>
           <tr>
@@ -1077,16 +1274,16 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       </table>
 
       <!-- DETAILED POST OFFICE ACCOUNT NUMBERS SCHEDULE -->
-      <div class="print-section-title print-page-break" style="margin-top: 18px;">3. COMPLETE POST OFFICE ACCOUNTS SCHEDULE (WITH ACCOUNT NUMBERS)</div>
+      <div class="print-section-title print-page-break" style="margin-top: 18px;">${t('printDynDop3')}</div>
       <table class="print-table compact-table">
         <thead>
           <tr>
             <th style="width:30px;">#</th>
-            <th>Account Number</th>
+            <th>${t('thAccNo')}</th>
             <th>Scheme Description</th>
             <th>Classification</th>
-            <th class="text-right">Balance (₹)</th>
-            <th class="text-right">Est. Maturity (₹)</th>
+            <th class="text-right">${t('thBalance')}</th>
+            <th class="text-right">${t('thMaturity')}</th>
             <th class="text-center">Open Date</th>
             <th class="text-center">Maturity Date</th>
             <th class="text-right">Projected Interest (₹)</th>
@@ -1153,42 +1350,42 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         </div>
       </div>
 
-      <div class="print-section-title">1. MUTUAL FUNDS PERFORMANCE OVERVIEW</div>
+      <div class="print-section-title">${t('printDynMf1')}</div>
       <div class="print-kpi-grid">
         <div class="print-kpi-card card-navy">
-          <span class="print-kpi-lbl">Total Capital Invested</span>
+          <span class="print-kpi-lbl">${t('printDynMfKpiInv')}</span>
           <div class="print-kpi-val">${mfMeta.total_invested_formatted || '₹0.00'}</div>
           <span class="print-kpi-sub">Cost Basis Principal</span>
         </div>
         <div class="print-kpi-card card-cobalt">
-          <span class="print-kpi-lbl">Current Market Valuation</span>
+          <span class="print-kpi-lbl">${t('printDynMfKpiCur')}</span>
           <div class="print-kpi-val">${mfMeta.current_value_formatted || '₹0.00'}</div>
           <span class="print-kpi-sub">Live NAV Market Value</span>
         </div>
         <div class="print-kpi-card card-emerald">
-          <span class="print-kpi-lbl">Net Profit / Loss</span>
+          <span class="print-kpi-lbl">${t('printDynMfKpiPnl')}</span>
           <div class="print-kpi-val">${mfMeta.profit_loss_formatted || '₹0.00'}</div>
           <span class="print-kpi-sub">${mfMeta.profit_loss_pct || '0.00%'} Delta</span>
         </div>
         <div class="print-kpi-card card-purple">
-          <span class="print-kpi-lbl">Portfolio XIRR</span>
+          <span class="print-kpi-lbl">${t('printDynMfKpiXirr')}</span>
           <div class="print-kpi-val">${mfMeta.overall_xirr || '1.04%'}</div>
           <span class="print-kpi-sub">Annualized Compounded Growth</span>
         </div>
       </div>
 
-      <div class="print-section-title">2. DETAILED DIRECT FUNDS &amp; FOLIO SCHEDULE</div>
+      <div class="print-section-title">${t('printDynMf2')}</div>
       <table class="print-table">
         <thead>
           <tr>
             <th>Fund Scheme Name</th>
-            <th>AMC &bull; Category</th>
+            <th>${t('thAmc')}</th>
             <th>Folio Number</th>
-            <th class="text-right">Units</th>
+            <th class="text-right">${t('thUnits')}</th>
             <th class="text-right">Invested Cost (₹)</th>
-            <th class="text-right">Current Value (₹)</th>
+            <th class="text-right">${t('thCurrent')}</th>
             <th class="text-right">Net P&amp;L (₹)</th>
-            <th class="text-center">XIRR</th>
+            <th class="text-center">${t('thXirr')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1266,31 +1463,31 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
         </div>
       </div>
 
-      <div class="print-section-title">1. EXECUTIVE NET WORTH OVERVIEW</div>
+      <div class="print-section-title">${t('printDynCons1')}</div>
       <div class="print-kpi-grid">
         <div class="print-kpi-card card-navy">
-          <span class="print-kpi-lbl">Consolidated Net Worth</span>
+          <span class="print-kpi-lbl">${t('printDynConsKpiNet')}</span>
           <div class="print-kpi-val">₹${totNetWorth.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
           <span class="print-kpi-sub">Total Current Market Valuation</span>
         </div>
         <div class="print-kpi-card card-cobalt">
-          <span class="print-kpi-lbl">Fixed Income Deposits (DOP)</span>
+          <span class="print-kpi-lbl">${t('printDynConsKpiDop')}</span>
           <div class="print-kpi-val">₹${dopVal.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
           <span class="print-kpi-sub">${dopRecords.length} Accounts &bull; ${totNetWorth > 0 ? ((dopVal/totNetWorth)*100).toFixed(1) : 0}% Share</span>
         </div>
         <div class="print-kpi-card card-emerald">
-          <span class="print-kpi-lbl">Equity Mutual Funds</span>
+          <span class="print-kpi-lbl">${t('printDynConsKpiMf')}</span>
           <div class="print-kpi-val">₹${mfCur.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
           <span class="print-kpi-sub">${mfRecords.length} Direct Schemes &bull; ${totNetWorth > 0 ? ((mfCur/totNetWorth)*100).toFixed(1) : 0}% Share</span>
         </div>
         <div class="print-kpi-card card-purple">
-          <span class="print-kpi-lbl">Projected Total Wealth</span>
+          <span class="print-kpi-lbl">${t('printDynConsKpiProj')}</span>
           <div class="print-kpi-val">₹${totProjWealth.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
           <span class="print-kpi-sub">+₹${(dopInt/100000).toFixed(2)} Lakhs Guaranteed Interest</span>
         </div>
       </div>
 
-      <div class="print-section-title">2. ASSET ALLOCATION &amp; CAPITAL DISTRIBUTION</div>
+      <div class="print-section-title">${t('printDynCons2')}</div>
       <table class="print-table">
         <thead>
           <tr>
@@ -1336,16 +1533,16 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       </table>
 
       <!-- Key Accounts Sample Schedule -->
-      <div class="print-section-title" style="margin-top: 18px;">3. KEY POST OFFICE ACCOUNTS SCHEDULE (WITH ACCOUNT NUMBERS)</div>
+      <div class="print-section-title" style="margin-top: 18px;">${t('printDynCons3')}</div>
       <table class="print-table compact-table">
         <thead>
           <tr>
             <th style="width:30px;">#</th>
-            <th>Account Number</th>
-            <th>Scheme Type</th>
+            <th>${t('thAccNo')}</th>
+            <th>${t('thScheme')}</th>
             <th>Classification</th>
-            <th class="text-right">Balance (₹)</th>
-            <th class="text-right">Est. Maturity (₹)</th>
+            <th class="text-right">${t('thBalance')}</th>
+            <th class="text-right">${t('thMaturity')}</th>
             <th class="text-center">Open Date</th>
             <th class="text-center">Maturity Date</th>
           </tr>
@@ -1368,7 +1565,7 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       ${dopRecords.length > 15 ? `<p style="font-size:6.5pt; color:#64748b; margin-top:-6px; margin-bottom:12px;">* Displaying top 15 key accounts in consolidated report. For the full 565 accounts schedule, select 'Post Office Full Statement' in Print options.</p>` : ''}
 
       ${includeWaterfall ? `
-        <div class="print-section-title">4. 2027–2031 CAPITAL REALIZATION WATERFALL SCHEDULE</div>
+        <div class="print-section-title">${t('printDynCons4')}</div>
         <div class="print-waterfall-grid">
           <div class="waterfall-box"><span class="waterfall-year">YEAR 2027</span><span class="waterfall-val">₹4,81,870.00</span><span class="waterfall-desc">Time Deposits</span></div>
           <div class="waterfall-box"><span class="waterfall-year">YEAR 2028</span><span class="waterfall-val">₹1,42,600.00</span><span class="waterfall-desc">Recurring Deposits</span></div>
@@ -1389,12 +1586,19 @@ function generatePrintReportHTML(scope = 'current', shouldMask = false, includeW
       </div>
     `;
   }
+
+  // Shared official footer line on every generated report.
+  reportContainer.insertAdjacentHTML('beforeend',
+    `<div class="print-footer-line">Apex Wealth &bull; Portfolio statement &bull; Valuation date ${valDate} &bull; Rates applied: RD ${interestRates.RD}% &bull; TD ${interestRates.TD}% &bull; SB ${interestRates.SB}% p.a. &bull; Projections are estimates, not guarantees &bull; ${shouldMask ? 'Identifiers masked' : 'Identifiers unmasked &mdash; handle as sensitive'}</div>`);
 }
 
 // ==================== CHART VISUALIZATIONS ====================
 function renderCharts() {
-  renderAllocationDonutChart();
-  renderTimelineBarChart();
+  // Charts are progressive enhancement: if the Chart.js CDN failed to load,
+  // the table, KPIs and print report must still render instead of throwing.
+  if (typeof Chart === 'undefined') return;
+  try { renderAllocationDonutChart(); } catch (e) { console.warn('Donut chart failed:', e); }
+  try { renderTimelineBarChart(); } catch (e) { console.warn('Timeline chart failed:', e); }
 }
 
 function renderAllocationDonutChart() {
@@ -1411,7 +1615,7 @@ function renderAllocationDonutChart() {
     const recs = mf?.records || [];
     labels = recs.map(r => r.scheme_name.length > 20 ? r.scheme_name.slice(0, 18) + '...' : r.scheme_name);
     data = recs.map(r => r.current_value);
-    colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+    colors = ['#2F5D7A', '#4C7A64', '#A67C3D', '#7C6A9C', '#B4534D'];
   } else if (currentAsset === 'dop' || (dop && !mf)) {
     const recs = dop?.records || [];
     const tdSum = recs.filter(r => r.category_code === 'TD').reduce((s, r) => s + r.balance, 0);
@@ -1419,13 +1623,13 @@ function renderAllocationDonutChart() {
     const sbSum = recs.filter(r => r.category_code === 'SB').reduce((s, r) => s + r.balance, 0);
     labels = ['Time Deposits (TD)', 'Recurring Deposits (RD)', 'Savings Bank (SB)'];
     data = [tdSum, rdSum, sbSum];
-    colors = ['#3b82f6', '#8b5cf6', '#10b981'];
+    colors = ['#2F5D7A', '#4C7A64', '#A67C3D']; // TD slate-blue, RD sage, SB ochre
   } else {
     const dopVal = dop?.metadata?.total_balance || 0;
     const mfVal = mf?.metadata?.current_value || 0;
     labels = ['Fixed Income (Post Office)', 'Equity Mutual Funds'];
     data = [dopVal, mfVal];
-    colors = ['#3b82f6', '#10b981'];
+    colors = ['#2F5D7A', '#4C7A64'];
   }
 
   donutChart = new Chart(ctx, {
@@ -1483,8 +1687,8 @@ function renderTimelineBarChart() {
       datasets: [{
         label: 'Value',
         data: data,
-        backgroundColor: data.map(v => v >= 0 ? 'rgba(59, 130, 246, 0.75)' : 'rgba(244, 63, 94, 0.75)'),
-        borderColor: data.map(v => v >= 0 ? '#3b82f6' : '#f43f5e'),
+        backgroundColor: data.map(v => v >= 0 ? 'rgba(47, 93, 122, 0.75)' : 'rgba(180, 83, 77, 0.75)'),
+        borderColor: data.map(v => v >= 0 ? '#2F5D7A' : '#B4534D'),
         borderWidth: 1.5,
         borderRadius: 6
       }]
@@ -1587,7 +1791,7 @@ function showToast(msg, type = 'info') {
   if (!container) return;
   const toast = document.createElement('div');
   toast.className = 'toast-msg';
-  toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'info'}" style="width:14px; height:14px; color:${type === 'success' ? '#10b981' : '#3b82f6'};"></i><span>${msg}</span>`;
+  toast.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : 'info'}" style="width:14px; height:14px; color:${type === 'success' ? '#4C7A64' : '#0F766E'};"></i><span>${msg}</span>`;
   container.appendChild(toast);
   if (window.lucide) lucide.createIcons();
   setTimeout(() => toast.remove(), 3500);

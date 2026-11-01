@@ -9,7 +9,7 @@
   <!-- Modern Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- SheetJS, Chart.js & Lucide Icons -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -18,10 +18,7 @@
   
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body class="theme-dark">
-  <!-- Ambient Atmosphere -->
-  <div class="ambient-glow glow-top"></div>
-  <div class="ambient-glow glow-bottom"></div>
+<body class="theme-light">
 
   <!-- Interactive App Shell (Hidden during Print) -->
   <div class="app-container no-print">
@@ -37,7 +34,7 @@
             <h1>Apex Wealth</h1>
             <span class="live-pill"><span class="dot"></span> Client-Safe</span>
           </div>
-          <p class="brand-sub">Multi-Asset Portfolio Intelligence &amp; Wealth Analytics</p>
+          <p class="brand-sub" data-i18n="brandSub">Multi-Asset Portfolio Intelligence &amp; Wealth Analytics</p>
         </div>
       </div>
 
@@ -45,51 +42,57 @@
       <div class="portfolio-switcher">
         <button class="switch-tab active" data-asset="consolidated">
           <i data-lucide="globe"></i>
-          <span>Consolidated Net Worth</span>
+          <span data-i18n="navConsolidated">Consolidated Net Worth</span>
         </button>
         <button class="switch-tab" data-asset="dop">
           <i data-lucide="landmark"></i>
-          <span>Post Office (565)</span>
+          <span data-i18n="navDop">Post Office</span> <span class="tab-count">(565)</span>
         </button>
         <button class="switch-tab" data-asset="mf">
           <i data-lucide="pie-chart"></i>
-          <span>Mutual Funds (4)</span>
+          <span data-i18n="navMf">Mutual Funds</span> <span class="tab-count">(4)</span>
         </button>
       </div>
 
       <!-- Global Controls -->
       <div class="header-controls">
+        <div class="lang-switcher" role="group" aria-label="Language">
+          <button type="button" class="lang-btn active" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" class="lang-btn" data-lang="mr" aria-pressed="false">मराठी</button>
+          <button type="button" class="lang-btn" data-lang="hi" aria-pressed="false">हिंदी</button>
+        </div>
         <button id="btnPrivacy" class="btn btn-ghost" title="Toggle Privacy Masking (Redact sensitive identifiers)">
-          <i data-lucide="eye-off" id="privacyIcon"></i>
-          <span id="privacyText">Mask Data</span>
+          <i data-lucide="eye" id="privacyIcon"></i>
+          <span id="privacyText" data-i18n="privacyUnmask">Unmask</span>
         </button>
 
-        <button id="btnThemeToggle" class="btn btn-ghost" title="Toggle Light/Dark Theme">
-          <i data-lucide="sun" id="themeIcon"></i>
+        <button id="btnThemeToggle" class="btn btn-ghost" title="Toggle Light/Dark Theme" aria-label="Toggle Light/Dark Theme">
+          <i data-lucide="moon" id="themeIcon"></i>
+          <span data-i18n="theme">Theme</span>
         </button>
 
         <div class="dropdown-wrapper">
           <button id="btnExportMenu" class="btn btn-secondary">
             <i data-lucide="download"></i>
-            <span>Export</span>
+            <span data-i18n="export">Export</span>
             <i data-lucide="chevron-down" style="width:13px; height:13px; opacity:0.6;"></i>
           </button>
           <div class="dropdown-menu hidden" id="exportDropdown">
             <button id="btnExportExcel" class="dropdown-item">
-              <i data-lucide="sheet"></i> Download Excel (.xlsx)
+              <i data-lucide="sheet"></i> <span data-i18n="exportExcel">Download Excel (.xlsx)</span>
             </button>
             <button id="btnExportCSV" class="dropdown-item">
-              <i data-lucide="file-text"></i> Download CSV Dataset
+              <i data-lucide="file-text"></i> <span data-i18n="exportCsv">Download CSV Dataset</span>
             </button>
             <button id="btnExportJSON" class="dropdown-item">
-              <i data-lucide="code-2"></i> Download JSON
+              <i data-lucide="code-2"></i> <span data-i18n="exportJson">Download JSON</span>
             </button>
           </div>
         </div>
 
         <button id="btnPrintModalOpen" class="btn btn-primary" title="Generate and Print Colored Wealth Statement">
           <i data-lucide="printer"></i>
-          <span>Print Report</span>
+          <span data-i18n="printReport">Print Report</span>
         </button>
       </div>
     </header>
@@ -101,16 +104,16 @@
       <section class="storage-status-bar hidden" id="storageStatusBar">
         <div class="storage-info">
           <i data-lucide="database" style="color:#10b981;"></i>
-          <span id="storageStatusText">Portfolio Stored Locally in Browser Memory (Zero Server Upload)</span>
+          <span id="storageStatusText" data-i18n="storedText">Portfolio Stored Locally in Browser Memory (Zero Server Upload)</span>
         </div>
         <div class="storage-actions">
           <button class="btn btn-secondary btn-sm" id="btnUploadMore">
             <i data-lucide="upload-cloud"></i>
-            <span>Import / Add File</span>
+            <span data-i18n="importMore">Import / Add File</span>
           </button>
           <button class="btn btn-ghost btn-sm" id="btnClearStorage" style="color:#ef4444;" title="Wipe local portfolio data">
             <i data-lucide="trash-2"></i>
-            <span>Reset My Data</span>
+            <span data-i18n="resetData">Reset My Data</span>
           </button>
         </div>
       </section>
@@ -118,10 +121,10 @@
       <!-- Welcome Onboarding & Uploader (Shown when no data in localStorage) -->
       <section class="onboarding-card glass-panel" id="onboardingSection">
         <div class="onboarding-badge">
-          <i data-lucide="lock"></i> 100% Client-Side Private Processing
+          <i data-lucide="lock"></i> <span data-i18n="onboardingBadge">100% Client-Side Private Processing</span>
         </div>
-        <h2 class="onboarding-title text-gradient">Welcome to Apex Wealth Intelligence</h2>
-        <p class="onboarding-sub">
+        <h2 class="onboarding-title text-gradient" data-i18n="onboardingTitle">Welcome to Apex Wealth Intelligence</h2>
+        <p class="onboarding-sub" data-i18n="onboardingSub">
           Upload your personal financial statements to generate instant multi-asset valuations, maturity simulations, and executive colored print statements. Your financial data never leaves your browser.
         </p>
 
@@ -132,8 +135,8 @@
             <div class="dropzone-icon-circle icon-blue-circle">
               <i data-lucide="landmark"></i>
             </div>
-            <h3>Post Office Fixed Income</h3>
-            <p>Upload your <strong>AccountSummary.xls</strong> or Post Office statement to analyze 5-Yr RDs, Time Deposits &amp; compound interest</p>
+            <h3 data-i18n="dropDopTitle">Post Office Fixed Income</h3>
+            <p data-i18n-html="dropDopText">Upload your <strong>AccountSummary.xls</strong> or Post Office statement to analyze 5-Yr RDs, Time Deposits &amp; compound interest</p>
             <span class="dropzone-filetypes">.XLS &bull; .XLSX &bull; .CSV</span>
           </div>
 
@@ -143,16 +146,16 @@
             <div class="dropzone-icon-circle icon-emerald-circle">
               <i data-lucide="trending-up"></i>
             </div>
-            <h3>Equity Mutual Funds &amp; Stocks</h3>
-            <p>Upload your <strong>Groww Holdings.xlsx</strong> or Demat portfolio statement to analyze Direct Plans, NAV gains &amp; XIRR</p>
+            <h3 data-i18n="dropMfTitle">Equity Mutual Funds &amp; Stocks</h3>
+            <p data-i18n-html="dropMfText">Upload your <strong>Groww Holdings.xlsx</strong> or Demat portfolio statement to analyze Direct Plans, NAV gains &amp; XIRR</p>
             <span class="dropzone-filetypes">.XLSX &bull; .XLS &bull; .CSV</span>
           </div>
         </div>
 
         <div class="onboarding-footer-actions">
-          <span>Just exploring?</span>
+          <span data-i18n="exploreText">Just exploring?</span>
           <button class="btn btn-ghost btn-sm" id="btnLoadDemo">
-            <i data-lucide="sparkles"></i> Load Sample Demo Portfolio
+            <i data-lucide="sparkles"></i> <span data-i18n="demoBtn">Load Sample Demo Portfolio</span>
           </button>
         </div>
       </section>
@@ -249,8 +252,8 @@
         <div class="chart-card glass-panel">
           <div class="chart-header">
             <div>
-              <h3 id="chartTitle1">Asset Allocation Breakdown</h3>
-              <p id="chartSub1">Portfolio distribution across instruments</p>
+              <h3 id="chartTitle1" data-i18n="chartTitle1">Asset Allocation Breakdown</h3>
+              <p id="chartSub1" data-i18n="chartSub1">Portfolio distribution across instruments</p>
             </div>
           </div>
           <div class="chart-box donut-wrap">
@@ -263,12 +266,12 @@
         <div class="chart-card glass-panel">
           <div class="chart-header">
             <div>
-              <h3 id="chartTitle2">Maturity &amp; Realization Schedule</h3>
-              <p id="chartSub2">Upcoming liquidity timeline and capital realization</p>
+              <h3 id="chartTitle2" data-i18n="chartTitle2">Maturity &amp; Realization Schedule</h3>
+              <p id="chartSub2" data-i18n="chartSub2">Upcoming liquidity timeline and capital realization</p>
             </div>
             <div class="chart-mode-pills" id="chartModePills">
-              <button class="pill-btn active" data-mode="payout">Value (₹)</button>
-              <button class="pill-btn" data-mode="count">Count</button>
+              <button class="pill-btn active" data-mode="payout" data-i18n="chartValue">Value (₹)</button>
+              <button class="pill-btn" data-mode="count" data-i18n="chartCount">Count</button>
             </div>
           </div>
           <div class="chart-box">
@@ -315,6 +318,36 @@
           </div>
         </div>
 
+        <!-- Projection options: editable rates + scheme / maturity filters -->
+        <details class="more-options" id="moreOptions"><summary data-i18n="moreOptions">More options</summary>
+          <div class="options-bar" id="optionsBar">
+          <div class="options-group">
+            <span class="options-label" data-i18n="ratesLabel">Interest rates (% p.a.)</span>
+            <label class="rate-field">RD <input type="number" id="rateRd" min="0" max="20" step="0.05" value="6.7" inputmode="decimal"> %</label>
+            <label class="rate-field">TD <input type="number" id="rateTd" min="0" max="20" step="0.05" value="6.9" inputmode="decimal"> %</label>
+            <label class="rate-field">SB <input type="number" id="rateSb" min="0" max="20" step="0.05" value="4.0" inputmode="decimal"> %</label>
+            <button class="btn btn-ghost btn-sm" id="btnResetRates" type="button" data-i18n="resetRates">Reset rates</button>
+          </div>
+          <div class="options-group">
+            <span class="options-label" data-i18n="ledgerFilters">Ledger filters</span>
+            <label class="filter-field"><span data-i18n="schemeLabel">Scheme</span>
+              <select id="selectSchemeFilter" class="custom-select">
+                <option value="all">All schemes</option>
+                <option value="SB">SB only</option>
+                <option value="TD">TD only</option>
+                <option value="RD">RD only</option>
+              </select>
+            </label>
+            <label class="filter-field"><span data-i18n="maturesLabel">Matures in</span>
+              <select id="selectMaturityYear" class="custom-select">
+                <option value="all">All years</option>
+              </select>
+            </label>
+          </div>
+          <p class="options-note" data-i18n="optionsNote">Rates recompute Post Office maturity projections live. RD uses quarterly compounding, TD 1-year quarterly compounding, SB simple annual yield. Your rates are remembered on this device only.</p>
+        </div>
+          </details>
+
         <!-- Table -->
         <div class="table-scroll-wrap">
           <table class="modern-table" id="mainDataTable">
@@ -345,10 +378,10 @@
               <i data-lucide="upload-cloud"></i>
             </div>
             <div class="upload-text">
-              <h4>Import Additional Financial Spreadsheet</h4>
-              <p>Drag &amp; drop any Post Office .xls or Groww .xlsx to append or update your local browser portfolio</p>
+              <h4 data-i18n="uploadTitle">Import Additional Financial Spreadsheet</h4>
+              <p data-i18n="uploadText">Drag &amp; drop any Post Office .xls or Groww .xlsx to append or update your local browser portfolio</p>
             </div>
-            <button class="btn btn-secondary btn-sm" type="button">Browse File</button>
+            <button class="btn btn-secondary btn-sm" type="button" data-i18n="browseFile">Browse File</button>
           </div>
         </div>
       </section>
@@ -359,7 +392,7 @@
 
     <!-- Global Footer -->
     <footer class="app-footer">
-      <p>Apex Wealth Intelligence &bull; Client-Side Private Processing &bull; Stored Locally &bull; Ready for Supabase Cloud Sync</p>
+      <p data-i18n="footerText">Apex Wealth Intelligence &bull; Client-Side Private Processing &bull; Stored Locally &bull; Ready for Supabase Cloud Sync</p>
     </footer>
   </div>
 
@@ -374,7 +407,7 @@
           <div class="print-logo-icon">▲</div>
           <div>
             <h1 class="print-brand-name">APEX WEALTH MANAGEMENT</h1>
-            <p class="print-brand-sub">PORTFOLIO INTELLIGENCE &amp; ASSET AUDIT REPORT</p>
+            <p class="print-brand-sub" data-i18n="printBrandSub">PORTFOLIO INTELLIGENCE &amp; ASSET AUDIT REPORT</p>
           </div>
         </div>
         <div class="print-meta-box">
@@ -387,61 +420,61 @@
       <!-- Investor Profile Box -->
       <div class="print-investor-card">
         <div class="print-inv-item">
-          <span class="print-inv-label">Investor Name</span>
+          <span class="print-inv-label" data-i18n="printInvName">Investor Name</span>
           <span class="print-inv-val" id="printInvestorName">Portfolio Investor</span>
         </div>
         <div class="print-inv-item">
-          <span class="print-inv-label">Identifier (PAN)</span>
+          <span class="print-inv-label" data-i18n="printInvPan">Identifier (PAN)</span>
           <span class="print-inv-val" id="printPan">XXXXX1234X</span>
         </div>
         <div class="print-inv-item">
-          <span class="print-inv-label">Primary Platforms</span>
+          <span class="print-inv-label" data-i18n="printInvPlatforms">Primary Platforms</span>
           <span class="print-inv-val" id="printPlatforms">India Post (Regional S.O) &bull; Groww Demat</span>
         </div>
         <div class="print-inv-item">
-          <span class="print-inv-label">Audit Scope</span>
+          <span class="print-inv-label" data-i18n="printInvScope">Audit Scope</span>
           <span class="print-inv-val">565 Fixed Income Accs + 4 Equity Funds</span>
         </div>
       </div>
     </div>
 
     <!-- Section 1: Colored Executive KPI Summary Grid -->
-    <div class="print-section-title">1. EXECUTIVE VALUATION &amp; WEALTH OVERVIEW</div>
+    <div class="print-section-title" data-i18n="printSec1">1. EXECUTIVE VALUATION &amp; WEALTH OVERVIEW</div>
     <div class="print-kpi-grid">
       <div class="print-kpi-card card-navy">
-        <span class="print-kpi-lbl">Consolidated Net Worth</span>
+        <span class="print-kpi-lbl" data-i18n="printKpiNetWorth">Consolidated Net Worth</span>
         <div class="print-kpi-val" id="printNetWorth">₹6,32,948.50</div>
         <span class="print-kpi-sub">Total Current Market Valuation</span>
       </div>
       <div class="print-kpi-card card-cobalt">
-        <span class="print-kpi-lbl">Fixed Income Deposits (DOP)</span>
+        <span class="print-kpi-lbl" data-i18n="printKpiDop">Fixed Income Deposits (DOP)</span>
         <div class="print-kpi-val" id="printDopVal">₹5,36,756.00</div>
         <span class="print-kpi-sub">565 Accounts &bull; 84.8% Allocation</span>
       </div>
       <div class="print-kpi-card card-emerald">
-        <span class="print-kpi-lbl">Equity Mutual Funds</span>
+        <span class="print-kpi-lbl" data-i18n="printKpiMf">Equity Mutual Funds</span>
         <div class="print-kpi-val" id="printMfVal">₹96,192.50</div>
         <span class="print-kpi-sub">1.04% XIRR &bull; 15.2% Allocation</span>
       </div>
       <div class="print-kpi-card card-purple">
-        <span class="print-kpi-lbl">Projected Total Wealth</span>
+        <span class="print-kpi-lbl" data-i18n="printKpiProj">Projected Total Wealth</span>
         <div class="print-kpi-val" id="printProjWealth">₹41,94,302.50</div>
         <span class="print-kpi-sub">+₹35.61 Lakhs Projected Interest</span>
       </div>
     </div>
 
     <!-- Section 2: Asset Allocation Summary Table -->
-    <div class="print-section-title" style="margin-top: 18px;">2. ASSET ALLOCATION &amp; CAPITAL DISTRIBUTION</div>
+    <div class="print-section-title" style="margin-top: 18px;" data-i18n="printSec2">2. ASSET ALLOCATION &amp; CAPITAL DISTRIBUTION</div>
     <table class="print-table">
       <thead>
         <tr>
-          <th>Asset Class</th>
-          <th>Instrument / Platform</th>
-          <th class="text-center">Holdings</th>
-          <th class="text-right">Cost Basis (₹)</th>
-          <th class="text-right">Current Market Value (₹)</th>
-          <th class="text-right">Allocation (%)</th>
-          <th class="text-right">Projected Realization (₹)</th>
+          <th>Asset Class data-i18n="printThAsset">/th>
+          <th>Instrument / Platform data-i18n="printThInstrument">/th>
+          <th class="text-center">Holdings data-i18n="printThHoldings">/th>
+          <th class="text-right">Cost Basis (₹) data-i18n="printThCost">/th>
+          <th class="text-right">Current Market Value (₹) data-i18n="printThCurrent">/th>
+          <th class="text-right">Allocation (%) data-i18n="printThAlloc">/th>
+          <th class="text-right">Projected Realization (₹) data-i18n="printThProj">/th>
         </tr>
       </thead>
       <tbody>
@@ -477,16 +510,16 @@
     </table>
 
     <!-- Section 3: Post Office Fixed Income Breakdown -->
-    <div class="print-section-title" style="margin-top: 18px;">3. POST OFFICE FIXED INCOME SCHEDULE (REGIONAL S.O)</div>
+    <div class="print-section-title" style="margin-top: 18px;" data-i18n="printSec3">3. POST OFFICE FIXED INCOME SCHEDULE (REGIONAL S.O)</div>
     <table class="print-table">
       <thead>
         <tr>
-          <th>Deposit Scheme</th>
-          <th class="text-center">Active Accounts</th>
-          <th class="text-right">Book Balance (₹)</th>
-          <th class="text-right">Share (%)</th>
-          <th class="text-right">Estimated Maturity Value (₹)</th>
-          <th class="text-right">Estimated Net Interest (₹)</th>
+          <th>Deposit Scheme data-i18n="printThScheme">/th>
+          <th class="text-center">Active Accounts data-i18n="printThAccounts">/th>
+          <th class="text-right">Book Balance (₹) data-i18n="printThBook">/th>
+          <th class="text-right">Share (%) data-i18n="printThShare">/th>
+          <th class="text-right">Estimated Maturity Value (₹) data-i18n="printThMatVal">/th>
+          <th class="text-right">Estimated Net Interest (₹) data-i18n="printThInterest">/th>
         </tr>
       </thead>
       <tbody>
@@ -518,18 +551,18 @@
     </table>
 
     <!-- Section 4: Mutual Funds Holdings Performance -->
-    <div class="print-section-title" style="margin-top: 18px;">4. EQUITY MUTUAL FUNDS PORTFOLIO PERFORMANCE</div>
+    <div class="print-section-title" style="margin-top: 18px;" data-i18n="printSec4">4. EQUITY MUTUAL FUNDS PORTFOLIO PERFORMANCE</div>
     <table class="print-table">
       <thead>
         <tr>
-          <th>Fund Scheme Name</th>
-          <th>AMC &bull; Category</th>
-          <th class="text-right">Units</th>
-          <th class="text-right">Invested Cost (₹)</th>
-          <th class="text-right">Current Value (₹)</th>
-          <th class="text-right">Net P&amp;L (₹)</th>
-          <th class="text-center">Return %</th>
-          <th class="text-center">XIRR</th>
+          <th>Fund Scheme Name data-i18n="printThFund">/th>
+          <th>AMC &bull; Category data-i18n="printThAmc">/th>
+          <th class="text-right">Units data-i18n="printThUnits">/th>
+          <th class="text-right">Invested Cost (₹) data-i18n="printThInvCost">/th>
+          <th class="text-right">Current Value (₹) data-i18n="printThCurVal">/th>
+          <th class="text-right">Net P&amp;L (₹) data-i18n="printThPnl">/th>
+          <th class="text-center">Return % data-i18n="printThRet">/th>
+          <th class="text-center">XIRR data-i18n="printThXirr">/th>
         </tr>
       </thead>
       <tbody>
@@ -577,7 +610,7 @@
     </table>
 
     <!-- Section 5: Maturity Liquidity Waterfall -->
-    <div class="print-section-title" style="margin-top: 18px;">5. CAPITAL REALIZATION WATERFALL (2027 – 2031)</div>
+    <div class="print-section-title" style="margin-top: 18px;" data-i18n="printSec5">5. CAPITAL REALIZATION WATERFALL (2027 – 2031)</div>
     <div class="print-waterfall-grid">
       <div class="waterfall-box">
         <span class="waterfall-year">YEAR 2027</span>
@@ -620,6 +653,7 @@
         </div>
       </div>
     </div>
+    <div class="print-footer-line">Apex Wealth &bull; Portfolio statement &bull; Projections are estimates based on the rates shown; verify against India Post records before acting.</div>
 
   </div>
 
@@ -628,8 +662,8 @@
     <div class="modal-dialog glass-panel" style="max-width: 620px;">
       <div class="modal-top">
         <div>
-          <span class="modal-tag">Print &amp; PDF Export Studio</span>
-          <h3 class="modal-title" style="color:var(--text-main); font-family:var(--font-main); font-size:1.15rem;">Executive Wealth Statement Generator</h3>
+          <span class="modal-tag" data-i18n="modalTag">Print &amp; PDF Export Studio</span>
+          <h3 class="modal-title" style="color:var(--text-main); font-family:var(--font-main); font-size:1.15rem;" data-i18n="modalTitle">Executive Wealth Statement Generator</h3>
         </div>
         <button class="btn-close" id="btnPrintModalClose" onclick="closePrintModal()" title="Close dialog"><i data-lucide="x"></i></button>
       </div>
@@ -637,16 +671,16 @@
       <div style="background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:10px; padding:16px; margin-bottom:18px;">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
           <i data-lucide="sparkles" style="color:#3b82f6; width:18px; height:18px;"></i>
-          <strong style="color:var(--text-main); font-size:0.9rem;">Executive Colored PDF Statement Ready</strong>
+          <strong style="color:var(--text-main); font-size:0.9rem;" data-i18n="modalReadyTitle">Executive Colored PDF Statement Ready</strong>
         </div>
-        <p style="font-size:0.78rem; color:var(--text-muted); line-height:1.5;">
+        <p style="font-size:0.78rem; color:var(--text-muted); line-height:1.5;" data-i18n="modalReadyText">
           Generates an A4-optimized wealth statement with executive colored KPI tiles, asset allocation tables, post office deposit breakdown, and mutual fund performance.
         </p>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:20px;">
         <div>
-          <label style="display:block; font-size:0.78rem; font-weight:700; color:var(--text-main); margin-bottom:6px;">Select Statement Type to Print:</label>
+          <label style="display:block; font-size:0.78rem; font-weight:700; color:var(--text-main); margin-bottom:6px;" data-i18n="modalScopeLabel">Select Statement Type to Print:</label>
           <select id="selectPrintScope" class="form-select" style="width:100%; background:var(--bg-card-elevated); color:var(--text-main); border:1px solid var(--border-bright); border-radius:8px; padding:9px 12px; font-size:0.85rem;">
             <option value="current">Current Active View</option>
             <option value="dop_detailed">Post Office Full Statement (with Detailed Account Numbers Schedule)</option>
@@ -657,19 +691,19 @@
 
         <div style="display:flex; flex-direction:column; gap:8px;">
           <label style="display:flex; align-items:center; gap:10px; font-size:0.82rem; cursor:pointer;">
-            <input type="checkbox" id="chkIncludeMask" style="accent-color:var(--color-brand);">
-            <span>Mask sensitive identifiers (PAN / Account Numbers: 0100****919)</span>
+            <input type="checkbox" id="chkIncludeMask" checked style="accent-color:var(--color-brand);">
+            <span data-i18n="modalMask">Mask sensitive identifiers (PAN / Account Numbers: XXXX****XXX)</span>
           </label>
           <label style="display:flex; align-items:center; gap:10px; font-size:0.82rem; cursor:pointer;">
             <input type="checkbox" id="chkIncludeWaterfall" checked style="accent-color:var(--color-brand);">
-            <span>Include 2027–2031 Capital Realization Waterfall Schedule</span>
+            <span data-i18n="modalWaterfall">Include 2027–2031 Capital Realization Waterfall Schedule</span>
           </label>
         </div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:10px;">
-        <button class="btn btn-secondary" id="btnCancelPrint" onclick="closePrintModal()">Cancel</button>
-        <button class="btn btn-primary" id="btnExecutePrint"><i data-lucide="printer"></i> Print / Save as PDF</button>
+        <button class="btn btn-secondary" id="btnCancelPrint" onclick="closePrintModal()" data-i18n="modalCancel">Cancel</button>
+        <button class="btn btn-primary" id="btnExecutePrint"><i data-lucide="printer"></i> <span data-i18n="modalPrint">Print / Save as PDF</span></button>
       </div>
     </div>
   </div>
@@ -679,7 +713,7 @@
     <div class="modal-dialog glass-panel">
       <div class="modal-top">
         <div>
-          <span class="modal-tag" id="modalTag">Holding Details</span>
+          <span class="modal-tag" id="modalTag" data-i18n="detailTag">Holding Details</span>
           <h3 class="modal-title" id="modalTitle">-</h3>
         </div>
         <button class="btn-close" id="btnModalClose" onclick="closeModal()" title="Close inspection"><i data-lucide="x"></i></button>
@@ -696,6 +730,8 @@
 
   <!-- Embedded Sanitized Portfolio Dataset for Public Vercel Demo -->
   <script src="/portfolio_data.js"></script>
+  <!-- Language Pack (EN / Marathi / Hindi) -->
+  <script src="/i18n.js"></script>
   <!-- Application Client Controller -->
   <script src="/app.js"></script>
 </body>

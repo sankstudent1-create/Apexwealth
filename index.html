@@ -26,14 +26,10 @@
     <!-- Top Header Navigation -->
     <header class="top-header glass-panel">
       <div class="header-brand">
-        <div class="brand-icon">
-          <i data-lucide="shield-check"></i>
-        </div>
+        <svg class="brand-logo" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M5 40 L24 7 L43 40" stroke="#1E40AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 40 L24 23 L32 40" stroke="#7C5C9E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="7" r="3.5" fill="#B45309"/></svg>
         <div>
-          <div class="brand-title-wrap">
-            <h1>Apex Wealth</h1>
-            <span class="live-pill"><span class="dot"></span> Client-Safe</span>
-          </div>
+          <div class="brand-wordmark">SWInfoSystems</div>
+          <div class="brand-product">Apex Wealth</div>
           <p class="brand-sub" data-i18n="brandSub">Multi-Asset Portfolio Intelligence &amp; Wealth Analytics</p>
         </div>
       </div>
@@ -84,6 +80,9 @@
             <button id="btnExportCSV" class="dropdown-item">
               <i data-lucide="file-text"></i> <span data-i18n="exportCsv">Download CSV Dataset</span>
             </button>
+            <button id="btnExportCsvView" class="dropdown-item">
+              <i data-lucide="file-text"></i> <span data-i18n="exportCsvView">Download CSV — current view</span>
+            </button>
             <button id="btnExportJSON" class="dropdown-item">
               <i data-lucide="code-2"></i> <span data-i18n="exportJson">Download JSON</span>
             </button>
@@ -103,13 +102,19 @@
       <!-- Storage Status Bar (Visible when user has data saved locally) -->
       <section class="storage-status-bar hidden" id="storageStatusBar">
         <div class="storage-info">
-          <i data-lucide="database" style="color:#10b981;"></i>
+          <i data-lucide="database" style="color:#1E40AF;"></i>
           <span id="storageStatusText" data-i18n="storedText">Portfolio Stored Locally in Browser Memory (Zero Server Upload)</span>
         </div>
         <div class="storage-actions">
           <button class="btn btn-secondary btn-sm" id="btnUploadMore">
             <i data-lucide="upload-cloud"></i>
             <span data-i18n="importMore">Import / Add File</span>
+          </button>
+          <button class="btn btn-secondary btn-sm hidden" id="btnRestoreDemo">
+            <span data-i18n="restoreDemo">Restore demo</span>
+          </button>
+          <button class="btn btn-ghost btn-sm hidden" id="btnClearUpload" style="color:#ef4444;">
+            <span data-i18n="clearUpload">Clear upload</span>
           </button>
           <button class="btn btn-ghost btn-sm" id="btnClearStorage" style="color:#ef4444;" title="Wipe local portfolio data">
             <i data-lucide="trash-2"></i>
@@ -143,7 +148,7 @@
           <!-- Dropzone 2: Mutual Funds -->
           <div class="dropzone-box mf-dropzone" id="dropzoneMf">
             <input type="file" id="fileInputMf" accept=".xlsx,.xls,.csv" class="file-hidden">
-            <div class="dropzone-icon-circle icon-emerald-circle">
+            <div class="dropzone-icon-circle icon-positive-circle">
               <i data-lucide="trending-up"></i>
             </div>
             <h3 data-i18n="dropMfTitle">Equity Mutual Funds &amp; Stocks</h3>
@@ -190,7 +195,7 @@
           </div>
           <div class="hero-stat-box highlighted">
             <span class="stat-box-title" id="heroStatTitle3">Projected Total Wealth</span>
-            <span class="stat-box-num text-emerald" id="heroStatNum3">₹41,94,302.50</span>
+            <span class="stat-box-num text-positive" id="heroStatNum3">₹41,94,302.50</span>
           </div>
         </div>
       </section>
@@ -212,11 +217,11 @@
         <div class="kpi-box glass-panel">
           <div class="kpi-box-top">
             <span class="kpi-box-label" id="kpiLabel2">Mutual Funds (Equity)</span>
-            <div class="kpi-icon-wrap icon-emerald"><i data-lucide="trending-up"></i></div>
+            <div class="kpi-icon-wrap icon-positive"><i data-lucide="trending-up"></i></div>
           </div>
           <div class="kpi-box-val" id="kpiVal2">₹96,192.50</div>
           <div class="kpi-box-sub">
-            <span class="badge-tag badge-emerald" id="kpiBadge2">4 Direct Funds</span>
+            <span class="badge-tag badge-positive" id="kpiBadge2">4 Direct Funds</span>
             <span class="kpi-note" id="kpiNote2">15.2% Allocation</span>
           </div>
         </div>
@@ -238,7 +243,7 @@
             <span class="kpi-box-label" id="kpiLabel4">Estimated Net Gain</span>
             <div class="kpi-icon-wrap icon-amber"><i data-lucide="sparkles"></i></div>
           </div>
-          <div class="kpi-box-val text-emerald" id="kpiVal4">+₹35.61 Lakhs</div>
+          <div class="kpi-box-val text-positive" id="kpiVal4">+₹35.61 Lakhs</div>
           <div class="kpi-box-sub">
             <span class="badge-tag badge-amber" id="kpiBadge4">Maturity Pool</span>
             <span class="kpi-note" id="kpiNote4">Total Returns</span>
@@ -289,14 +294,16 @@
             <span class="count-badge" id="tableCountBadge">565 Records</span>
           </div>
 
-          <!-- Quick Filter Chips -->
-          <div class="filter-chips-wrap" id="filterChipsWrap">
-            <button class="chip-btn active" data-filter="all">All</button>
-            <button class="chip-btn" data-filter="TD">Time Deposits (62)</button>
-            <button class="chip-btn" data-filter="RD">Recurring Deposits (502)</button>
-            <button class="chip-btn" data-filter="SB">Savings Bank (1)</button>
-            <button class="chip-btn" data-filter="high">High Value (≥ ₹10k)</button>
+          <!-- View control: the single source of truth for account type (DOP tabs).
+               It drives KPIs, ledger, charts and the PDF — not a second filter. -->
+          <div class="view-control" id="viewControl" role="group" aria-label="Account type view">
+            <button class="view-btn active" data-view="all" data-i18n="viewAll">All</button>
+            <button class="view-btn" data-view="SB" data-i18n="viewSb">SB only</button>
+            <button class="view-btn" data-view="TD" data-i18n="viewTd">TD only</button>
+            <button class="view-btn" data-view="RD" data-i18n="viewRd">RD only</button>
           </div>
+          <!-- MF quick-filter chips (rendered by JS on the Mutual Funds tab) -->
+          <div class="filter-chips-wrap" id="filterChipsWrap"></div>
         </div>
 
         <!-- Search Bar -->
@@ -306,6 +313,18 @@
             <input type="text" id="searchInput" placeholder="Search by name, account / folio number, category, dates, amounts...">
             <button id="btnClearSearch" class="btn-clear hidden"><i data-lucide="x"></i></button>
           </div>
+
+          <label class="sort-wrap"><span data-i18n="sortLabel">Sort</span>
+            <select id="selectSort" class="custom-select">
+              <option value="default" data-i18n="sortDefault">Default order</option>
+              <option value="balDesc" data-i18n="sortBalDesc">Balance: high to low</option>
+              <option value="balAsc" data-i18n="sortBalAsc">Balance: low to high</option>
+              <option value="matDate" data-i18n="sortMatDate">Maturity date</option>
+              <option value="openDate" data-i18n="sortOpenDate">Open date</option>
+            </select>
+          </label>
+
+          <label class="maturing-check"><input type="checkbox" id="chkMaturing12m"> <span data-i18n="maturing12m">Maturing in next 12 months</span></label>
 
           <div class="page-size-wrap">
             <select id="selectPageSize" class="custom-select">
@@ -330,14 +349,7 @@
           </div>
           <div class="options-group">
             <span class="options-label" data-i18n="ledgerFilters">Ledger filters</span>
-            <label class="filter-field"><span data-i18n="schemeLabel">Scheme</span>
-              <select id="selectSchemeFilter" class="custom-select">
-                <option value="all">All schemes</option>
-                <option value="SB">SB only</option>
-                <option value="TD">TD only</option>
-                <option value="RD">RD only</option>
-              </select>
-            </label>
+            <p class="options-note" style="margin:0;" data-i18n="viewNote">Account type is chosen with the View control above the ledger — it drives the KPIs, the ledger and the PDF together.</p>
             <label class="filter-field"><span data-i18n="maturesLabel">Matures in</span>
               <select id="selectMaturityYear" class="custom-select">
                 <option value="all">All years</option>
@@ -347,6 +359,9 @@
           <p class="options-note" data-i18n="optionsNote">Rates recompute Post Office maturity projections live. RD uses quarterly compounding, TD 1-year quarterly compounding, SB simple annual yield. Your rates are remembered on this device only.</p>
         </div>
           </details>
+
+        <!-- Per-view totals row (stays visible above the ledger) -->
+        <div class="ledger-totals-bar" id="ledgerTotalsBar" aria-live="polite"></div>
 
         <!-- Table -->
         <div class="table-scroll-wrap">
@@ -392,7 +407,7 @@
 
     <!-- Global Footer -->
     <footer class="app-footer">
-      <p data-i18n="footerText">Apex Wealth Intelligence &bull; Client-Side Private Processing &bull; Stored Locally &bull; Ready for Supabase Cloud Sync</p>
+      <p data-i18n="footerText">A SWInfoSystems product &bull; Apex Wealth Intelligence &bull; Client-Side Private Processing &bull; Stored Locally</p>
     </footer>
   </div>
 
@@ -404,9 +419,9 @@
     <div class="print-header">
       <div class="print-brand-row">
         <div class="print-logo-box">
-          <div class="print-logo-icon">▲</div>
+          <svg class="print-brand-logo" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M5 40 L24 7 L43 40" stroke="#1E40AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 40 L24 23 L32 40" stroke="#7C5C9E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="7" r="3.5" fill="#B45309"/></svg>
           <div>
-            <h1 class="print-brand-name">APEX WEALTH MANAGEMENT</h1>
+            <h1 class="print-brand-name">SWInfoSystems &bull; APEX WEALTH</h1>
             <p class="print-brand-sub" data-i18n="printBrandSub">PORTFOLIO INTELLIGENCE &amp; ASSET AUDIT REPORT</p>
           </div>
         </div>
@@ -441,22 +456,22 @@
     <!-- Section 1: Colored Executive KPI Summary Grid -->
     <div class="print-section-title" data-i18n="printSec1">1. EXECUTIVE VALUATION &amp; WEALTH OVERVIEW</div>
     <div class="print-kpi-grid">
-      <div class="print-kpi-card card-navy">
+      <div class="print-kpi-card card-indigo">
         <span class="print-kpi-lbl" data-i18n="printKpiNetWorth">Consolidated Net Worth</span>
         <div class="print-kpi-val" id="printNetWorth">₹6,32,948.50</div>
         <span class="print-kpi-sub">Total Current Market Valuation</span>
       </div>
-      <div class="print-kpi-card card-cobalt">
+      <div class="print-kpi-card card-blue">
         <span class="print-kpi-lbl" data-i18n="printKpiDop">Fixed Income Deposits (DOP)</span>
         <div class="print-kpi-val" id="printDopVal">₹5,36,756.00</div>
         <span class="print-kpi-sub">565 Accounts &bull; 84.8% Allocation</span>
       </div>
-      <div class="print-kpi-card card-emerald">
+      <div class="print-kpi-card card-plum">
         <span class="print-kpi-lbl" data-i18n="printKpiMf">Equity Mutual Funds</span>
         <div class="print-kpi-val" id="printMfVal">₹96,192.50</div>
         <span class="print-kpi-sub">1.04% XIRR &bull; 15.2% Allocation</span>
       </div>
-      <div class="print-kpi-card card-purple">
+      <div class="print-kpi-card card-amber">
         <span class="print-kpi-lbl" data-i18n="printKpiProj">Projected Total Wealth</span>
         <div class="print-kpi-val" id="printProjWealth">₹41,94,302.50</div>
         <span class="print-kpi-sub">+₹35.61 Lakhs Projected Interest</span>
@@ -485,7 +500,7 @@
           <td class="text-right">₹5,36,756.00</td>
           <td class="text-right">₹5,36,756.00</td>
           <td class="text-right"><strong>84.80%</strong></td>
-          <td class="text-right font-bold" style="color:#047857;">₹40,98,110.00</td>
+          <td class="text-right font-bold" style="color:#1E40AF;">₹40,98,110.00</td>
         </tr>
         <tr>
           <td><strong>Equity Mutual Funds</strong></td>
@@ -494,7 +509,7 @@
           <td class="text-right">₹99,994.96</td>
           <td class="text-right">₹96,192.50</td>
           <td class="text-right"><strong>15.20%</strong></td>
-          <td class="text-right font-bold" style="color:#047857;">₹96,192.50</td>
+          <td class="text-right font-bold" style="color:#1E40AF;">₹96,192.50</td>
         </tr>
       </tbody>
       <tfoot>
@@ -504,7 +519,7 @@
           <td class="text-right"><strong>₹6,36,750.96</strong></td>
           <td class="text-right"><strong>₹6,32,948.50</strong></td>
           <td class="text-right"><strong>100.00%</strong></td>
-          <td class="text-right font-bold" style="color:#047857;"><strong>₹41,94,302.50</strong></td>
+          <td class="text-right font-bold" style="color:#1E40AF;"><strong>₹41,94,302.50</strong></td>
         </tr>
       </tfoot>
     </table>
@@ -529,7 +544,7 @@
           <td class="text-right">₹4,50,000.00</td>
           <td class="text-right">83.84%</td>
           <td class="text-right">₹4,81,870.00</td>
-          <td class="text-right font-bold" style="color:#047857;">+₹31,870.00</td>
+          <td class="text-right font-bold" style="color:#1E40AF;">+₹31,870.00</td>
         </tr>
         <tr>
           <td><strong>Recurring Deposit Product (5-Yr RD)</strong></td>
@@ -537,7 +552,7 @@
           <td class="text-right">₹50,200.00</td>
           <td class="text-right">9.35%</td>
           <td class="text-right">₹35,79,260.00</td>
-          <td class="text-right font-bold" style="color:#047857;">+₹35,29,060.00</td>
+          <td class="text-right font-bold" style="color:#1E40AF;">+₹35,29,060.00</td>
         </tr>
         <tr>
           <td><strong>Savings Bank Account (SB)</strong></td>
@@ -545,7 +560,7 @@
           <td class="text-right">₹36,556.00</td>
           <td class="text-right">6.81%</td>
           <td class="text-right">₹36,556.00</td>
-          <td class="text-right font-bold" style="color:#047857;">+₹1,462.24 / yr</td>
+          <td class="text-right font-bold" style="color:#1E40AF;">+₹1,462.24 / yr</td>
         </tr>
       </tbody>
     </table>
@@ -572,9 +587,9 @@
           <td class="text-right">871.622</td>
           <td class="text-right">₹29,998.51</td>
           <td class="text-right">₹32,307.72</td>
-          <td class="text-right font-bold" style="color:#047857;">+₹2,309.20</td>
-          <td class="text-center"><span class="print-tag tag-green">+7.70%</span></td>
-          <td class="text-center font-bold" style="color:#047857;">+5.09%</td>
+          <td class="text-right font-bold" style="color:#1E40AF;">+₹2,309.20</td>
+          <td class="text-center"><span class="print-tag tag-positive">+7.70%</span></td>
+          <td class="text-center font-bold" style="color:#1E40AF;">+5.09%</td>
         </tr>
         <tr>
           <td><strong>JM Flexi Cap Fund Direct Growth</strong></td>
@@ -594,7 +609,7 @@
           <td class="text-right">₹28,587.60</td>
           <td class="text-right font-bold" style="color:#b91c1c;">-₹1,410.88</td>
           <td class="text-center"><span class="print-tag tag-red">-4.70%</span></td>
-          <td class="text-center" style="color:#047857;">+0.22%</td>
+          <td class="text-center" style="color:#1E40AF;">+0.22%</td>
         </tr>
         <tr>
           <td><strong>Tata Digital India Fund Direct</strong></td>
@@ -639,21 +654,19 @@
       </div>
     </div>
 
-    <!-- Sign-off & Audit Seal -->
-    <div class="print-footer-block">
-      <div class="print-disclaimer">
-        <p><strong>Compliance &amp; Verification Note:</strong> This statement reflects audited records as of 25-Sep-2026. Fixed Income compounding models adhere to India Post interest rates (6.70% p.a. quarterly compounded for 5-Year RD, 6.90% p.a. for 1-Year TD). Mutual fund values reflect published closing Net Asset Value (NAV).</p>
+    <!-- Sign-off: SWInfoSystems brand mark only; no person's name is printed as signatory -->
+    <div class="print-signoff">
+      <div class="signoff-brand">
+        <svg class="print-brand-logo" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M5 40 L24 7 L43 40" stroke="#1E40AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 40 L24 23 L32 40" stroke="#7C5C9E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="7" r="3.5" fill="#B45309"/></svg>
+        <span>For SWInfoSystems</span>
       </div>
-      <div class="print-signature-wrap">
-        <div class="signature-line">
-          <span>Prepared by Apex Wealth System</span>
-        </div>
-        <div class="signature-line">
-          <span>Authorized Investor Signature</span>
-        </div>
+      <div class="signoff-sig">
+        <div class="signoff-sig-space"></div>
+        <div class="signoff-line"></div>
+        <div class="signoff-label">Authorised Signatory</div>
       </div>
     </div>
-    <div class="print-footer-line">Apex Wealth &bull; Portfolio statement &bull; Projections are estimates based on the rates shown; verify against India Post records before acting.</div>
+    <div class="print-footer-line">SWInfoSystems &bull; Apex Wealth &bull; Portfolio statement &bull; Projections are estimates based on the rates shown; verify against India Post records before acting.</div>
 
   </div>
 
@@ -670,7 +683,7 @@
 
       <div style="background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.25); border-radius:10px; padding:16px; margin-bottom:18px;">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-          <i data-lucide="sparkles" style="color:#3b82f6; width:18px; height:18px;"></i>
+          <i data-lucide="sparkles" style="color:#1E40AF; width:18px; height:18px;"></i>
           <strong style="color:var(--text-main); font-size:0.9rem;" data-i18n="modalReadyTitle">Executive Colored PDF Statement Ready</strong>
         </div>
         <p style="font-size:0.78rem; color:var(--text-muted); line-height:1.5;" data-i18n="modalReadyText">
@@ -694,6 +707,15 @@
             <input type="checkbox" id="chkIncludeMask" checked style="accent-color:var(--color-brand);">
             <span data-i18n="modalMask">Mask sensitive identifiers (PAN / Account Numbers: XXXX****XXX)</span>
           </label>
+          <div style="border:1px solid var(--border-subtle); border-radius:8px; padding:10px 12px;">
+            <label style="display:block; font-size:0.82rem; font-weight:700; margin-bottom:4px;" data-i18n="sigUploadLabel">Your signature for the sign-off block (optional)</label>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 8px;" data-i18n="sigUploadNote">Upload a PNG of your own signature. It is stored only on this device (localStorage) and is never sent anywhere. Without it, the sign-off shows the SWInfoSystems mark and a blank signature line — never a fake signature.</p>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input type="file" id="sigUpload" accept="image/png" style="font-size:0.8rem;">
+              <button class="btn btn-ghost btn-sm hidden" id="btnRemoveSig" type="button" data-i18n="sigRemove">Remove signature</button>
+              <span id="sigStatus" style="font-size:0.78rem; color:var(--text-muted);"></span>
+            </div>
+          </div>
           <label style="display:flex; align-items:center; gap:10px; font-size:0.82rem; cursor:pointer;">
             <input type="checkbox" id="chkIncludeWaterfall" checked style="accent-color:var(--color-brand);">
             <span data-i18n="modalWaterfall">Include 2027–2031 Capital Realization Waterfall Schedule</span>

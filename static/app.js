@@ -107,18 +107,42 @@ function persistView() {
 let maturityYearFilter = 'all';
 let sortKey = 'default';
 let maturing12mOnly = false;
-// User's own signature image (PNG data URL, this device only). Absent =
-// brand mark + blank line, never a forged signature.
+// Signature for the sign-off block. Precedence: an uploaded signature
+// (PNG data URL, this device only) wins when mode is 'uploaded'; otherwise
+// the bundled default signature image (the user's own supplied signature,
+// shipped as an asset) is shown; mode 'none' shows brand mark + blank line.
+// No person's name is ever printed as signatory and no signature is invented.
+const DEFAULT_SIGNATURE_SRC = 'assets/default-signature.png';
 function loadStoredSignature() {
   try { return localStorage.getItem('apex_signature_png') || null; } catch (e) { return null; }
+}
+function getSignatureMode() {
+  try {
+    const m = localStorage.getItem('apex_signature_mode');
+    if (m === 'uploaded' || m === 'default' || m === 'none') return m;
+  } catch (e) { /* ignore */ }
+  // Migrate: an existing upload keeps working as 'uploaded'.
+  return loadStoredSignature() ? 'uploaded' : 'default';
+}
+function setSignatureMode(mode) {
+  try { localStorage.setItem('apex_signature_mode', mode); } catch (e) { /* ignore */ }
+}
+function resolveSignatureSrc() {
+  const mode = getSignatureMode();
+  if (mode === 'none') return null;
+  if (mode === 'uploaded') {
+    const stored = loadStoredSignature();
+    return stored || DEFAULT_SIGNATURE_SRC;
+  }
+  return DEFAULT_SIGNATURE_SRC;
 }
 function brandLogoSVG(cls) {
   return `<svg class="${cls}" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M5 40 L24 7 L43 40" stroke="#1E40AF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 40 L24 23 L32 40" stroke="#7C5C9E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="7" r="3.5" fill="#B45309"/></svg>`;
 }
 function signoffBlockHTML() {
-  const sig = loadStoredSignature();
+  const sig = resolveSignatureSrc();
   const sigArea = sig
-    ? `<img src="${sig}" alt="Uploaded signature">`
+    ? `<img src="${sig}" alt="Signature">`
     : `<div class="signoff-sig-space"></div>`;
   return `<div class="print-signoff">
     <div class="signoff-brand">${brandLogoSVG('print-brand-logo')}<span>${t('printForBrand')}</span></div>
@@ -445,30 +469,69 @@ function setupEventListeners() {
       showToast('Upload cleared.', 'info');
     }
   });
-  // Signature upload (PNG, this device only)
+  // Signature upload (PNG, JPEG or WebP; normalised to a PNG data URL
+  // on this device only, max ~600px wide, so one code path serves screen
+  // and print). The 1 MB guard is checked on the original file.
+  const SIG_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
   const sigInput = document.getElementById('sigUpload');
   if (sigInput) sigInput.addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
-    if (f.type !== 'image/png') { showToast('Please upload a PNG image.', 'error'); e.target.value = ''; return; }
-    if (f.size > 1024 * 1024) { showToast('Signature image must be under 1 MB.', 'error'); e.target.value = ''; return; }
+    const extOk = /\.(png|jpe?g|webp)$/i.test(f.name || '');
+    if (f.type && !SIG_TYPES.includes(f.type) && !extOk) { showToast(t('sigTypeError'), 'error'); e.target.value = ''; return; }
+    if (!f.type && !extOk) { showToast(t('sigTypeError'), 'error'); e.target.value = ''; return; }
+    if (f.size > 1024 * 1024) { showToast(t('sigSizeError'), 'error'); e.target.value = ''; return; }
     const reader = new FileReader();
     reader.onload = () => {
-      try { localStorage.setItem('apex_signature_png', reader.result); } catch (err) { showToast('Signature too large for device storage.', 'error'); return; }
-      refreshSigStatus();
-      updatePrintStatement();
-      showToast('Signature saved on this device.', 'success');
+      const img = new Image();
+      img.onload = () => {
+        let dataUrl = reader.result;
+        try {
+          const maxW = 600;
+          const scale = img.width > maxW ? maxW / img.width : 1;
+          const cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(img.width * scale));
+          cv.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, cv.width, cv.height);
+          ctx.drawImage(img, 0, 0, cv.width, cv.height);
+          dataUrl = cv.toDataURL('image/png');
+        } catch (convErr) { /* fall back to the raw data URL below */ }
+        try { localStorage.setItem('apex_signature_png', dataUrl); } catch (err) { showToast(t('sigStorageError'), 'error'); return; }
+        setSignatureMode('uploaded');
+        refreshSigStatus();
+        updatePrintStatement();
+        showToast(t('sigSaved'), 'success');
+      };
+      img.onerror = () => { showToast(t('sigTypeError'), 'error'); };
+      img.src = reader.result;
     };
     reader.readAsDataURL(f);
   });
   const rmSig = document.getElementById('btnRemoveSig');
   if (rmSig) rmSig.addEventListener('click', () => {
     try { localStorage.removeItem('apex_signature_png'); } catch (e) { /* ignore */ }
+    setSignatureMode('default');
     const inp = document.getElementById('sigUpload');
     if (inp) inp.value = '';
     refreshSigStatus();
     updatePrintStatement();
-    showToast('Signature removed.', 'info');
+    showToast(t('sigRemoved'), 'info');
+  });
+  const useDefSig = document.getElementById('btnUseDefaultSig');
+  if (useDefSig) useDefSig.addEventListener('click', () => {
+    setSignatureMode('default');
+    refreshSigStatus();
+    updatePrintStatement();
+    showToast(t('sigDefault'), 'info');
+  });
+  const noSig = document.getElementById('btnNoSig');
+  if (noSig) noSig.addEventListener('click', () => {
+    setSignatureMode('none');
+    refreshSigStatus();
+    updatePrintStatement();
+    showToast(t('sigNone'), 'info');
   });
   refreshSigStatus();
 
@@ -669,9 +732,12 @@ function loadActivePortfolioFromStorage() {
 function refreshSigStatus() {
   const status = document.getElementById('sigStatus');
   const rm = document.getElementById('btnRemoveSig');
-  const has = !!loadStoredSignature();
-  if (status) status.textContent = has ? t('sigSaved') : t('sigNone');
-  if (rm) rm.classList.toggle('hidden', !has);
+  const useDef = document.getElementById('btnUseDefaultSig');
+  const mode = getSignatureMode();
+  const hasUpload = !!loadStoredSignature();
+  if (status) status.textContent = mode === 'uploaded' ? t('sigSaved') : mode === 'none' ? t('sigNone') : t('sigDefault');
+  if (rm) rm.classList.toggle('hidden', !hasUpload);
+  if (useDef) useDef.classList.toggle('hidden', mode === 'default');
 }
 
 function getConsolidatedFromData(dop, mf) {

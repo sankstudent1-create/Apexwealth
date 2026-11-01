@@ -661,7 +661,7 @@
         <span>For SWInfoSystems</span>
       </div>
       <div class="signoff-sig">
-        <div class="signoff-sig-space"></div>
+        <img src="assets/default-signature.png" alt="Signature">
         <div class="signoff-line"></div>
         <div class="signoff-label">Authorised Signatory</div>
       </div>
@@ -709,10 +709,12 @@
           </label>
           <div style="border:1px solid var(--border-subtle); border-radius:8px; padding:10px 12px;">
             <label style="display:block; font-size:0.82rem; font-weight:700; margin-bottom:4px;" data-i18n="sigUploadLabel">Your signature for the sign-off block (optional)</label>
-            <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 8px;" data-i18n="sigUploadNote">Upload a PNG of your own signature. It is stored only on this device (localStorage) and is never sent anywhere. Without it, the sign-off shows the SWInfoSystems mark and a blank signature line — never a fake signature.</p>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 8px;" data-i18n="sigUploadNote">Upload a PNG, JPEG or WebP photo of your own signature (under 1 MB). It is normalised on this device and stored only here (localStorage) — never sent anywhere. If you upload nothing, the bundled default sign is used; choose "No signature" for a blank line with the SWInfoSystems mark only — never a fake signature.</p>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <input type="file" id="sigUpload" accept="image/png" style="font-size:0.8rem;">
-              <button class="btn btn-ghost btn-sm hidden" id="btnRemoveSig" type="button" data-i18n="sigRemove">Remove signature</button>
+              <input type="file" id="sigUpload" accept="image/png,image/jpeg,image/webp" style="font-size:0.8rem;">
+              <button class="btn btn-ghost btn-sm" id="btnUseDefaultSig" type="button" data-i18n="sigUseDefault">Use default sign</button>
+              <button class="btn btn-ghost btn-sm" id="btnNoSig" type="button" data-i18n="sigNoSignature">No signature</button>
+              <button class="btn btn-ghost btn-sm hidden" id="btnRemoveSig" type="button" data-i18n="sigRemove">Remove uploaded signature</button>
               <span id="sigStatus" style="font-size:0.78rem; color:var(--text-muted);"></span>
             </div>
           </div>
